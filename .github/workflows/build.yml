@@ -28,7 +28,7 @@ jobs:
           path: '*.vsix'
       # Pushing a tag like v1.1.0 also attaches the .vsix to a GitHub Release
       - if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: '*.vsix'
 
