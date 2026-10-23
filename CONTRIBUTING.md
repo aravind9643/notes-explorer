@@ -16,4 +16,10 @@ Menu and setting text lives in `package.nls.json`; messages in code use `t('…'
 
 1. Bump `version` in `package.json` and add a section to `CHANGELOG.md`.
 2. `git tag vX.Y.Z && git push --tags`. CI builds the `.vsix` and attaches it to a GitHub Release.
-3. Publish: `npx @vscode/vsce login <publisher>` (once, with an Azure DevOps token that has the *Marketplace → Manage* scope), then `npm run publish`.
+3. Publish with Microsoft Entra ID (no personal access token; global PATs stop working on 1 December 2026):
+   - Once per machine: install the Azure CLI and run `az login --tenant <tenant-id> --allow-no-subscriptions`, completing MFA in the browser.
+   - Once per publisher: the Azure DevOps user ID of that sign-in must be a member of the publisher. Find it with
+     `az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798` and the profile API
+     (`https://app.vssps.visualstudio.com/_apis/profile/profiles/me`), then add it as *Contributor* under the publisher's **Members**.
+     With a personal Microsoft account this ID differs from the one the Marketplace website uses.
+   - `npm run publish:check` confirms access; `npm run publish` publishes.

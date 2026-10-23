@@ -891,10 +891,11 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "package": "npx --yes @vscode/vsce package",
-    "publish": "npx --yes @vscode/vsce publish",
+    "publish": "npx --yes @vscode/vsce@4 publish --azure-credential",
     "l10n": "node scripts/l10n-export.js",
     "test:integration": "node test/integration/run.js",
-    "screenshots": "node scripts/render-webviews.js"
+    "screenshots": "node scripts/render-webviews.js",
+    "publish:check": "npx --yes @vscode/vsce@4 verify-pat --azure-credential AravindMerugu"
   },
   "l10n": "./l10n",
   "extensionKind": [
