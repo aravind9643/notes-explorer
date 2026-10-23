@@ -108,12 +108,27 @@ async function run() {
     await answering({ showInputBox: ['Login fails'], showQuickPick: [(items) => { offered = items; return items.find(i => /Bug report/.test(i.label)); }] },
       () => vscode.commands.executeCommand('notesExplorer.newNote'));
     const labels = offered.filter(i => i.kind !== vscode.QuickPickItemKind.Separator).map(i => i.label.replace(/^\$\([\w-]+\) /, ''));
-    for (const name of ['Blank note', 'Meeting', 'Daily', 'Weekly review', 'Project', '1-on-1', 'Standup', 'Bug report', 'Decision record', 'Retrospective', 'How-to', 'Reading notes', 'Checklist'])
+    for (const name of ['Blank note', 'Meeting', 'Daily', 'Weekly review', 'Project', '1-on-1', 'Standup', 'Bug report', 'Decision record', 'Retrospective', 'How-to', 'Reading notes', 'Credentials', 'Checklist'])
       assert.ok(labels.includes(name), `${name} offered`);
     const text = await until(() => fs.existsSync(path.join(ROOT, 'Login fails.md')) && read('Login fails.md'), 'bug note');
     assert.match(text, /^# Bug: Login fails\n/);
     assert.match(text, /## Steps to reproduce/);
     assert.doesNotMatch(text, /\{\{/);
+  });
+
+  await tryStep('Credentials template offers encryption right away', async () => {
+    await answering({
+      showInputBox: ['Work logins', 'pw for logins', 'pw for logins'],
+      showQuickPick: [(items) => items.find(i => /Credentials/.test(i.label))],
+      showWarningMessage: ['Encrypt Now', 'Encrypt']
+    }, () => vscode.commands.executeCommand('notesExplorer.newNote'));
+    const enc = path.join(ROOT, 'Work logins.mdenc');
+    await until(() => fs.existsSync(enc) && !fs.existsSync(path.join(ROOT, 'Work logins.md')), 'encrypted credentials note');
+    const text = require('../../src/secureNote').decrypt(fs.readFileSync(enc, 'utf8'), 'pw for logins');
+    assert.match(text, /^# Work logins\n/);
+    assert.match(text, /## Production[\s\S]*\*\*Password:\*\*/);
+    assert.doesNotMatch(fs.readFileSync(enc, 'utf8'), /Production|Password/);
+    await vscode.commands.executeCommand('notesExplorer.lockSecure');
   });
 
   await tryStep('marking a task done stamps the date', async () => {

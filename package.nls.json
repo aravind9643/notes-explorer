@@ -116,7 +116,7 @@
   "walkthrough.find.description": "Open by name or search every note.\n[Search in Notes](command:notesExplorer.search)",
   "walkthrough.secure.title": "Keep secrets safe",
   "walkthrough.secure.description": "Encrypt a note with a password.\n[Learn how](command:notesExplorer.tree.focus)",
-  "config.templates.showBuiltIn": "Offer the built-in templates (Meeting, Daily, Weekly review, Project, 1-on-1, Standup, Bug report, Decision record, Retrospective, How-to, Reading notes, Checklist) in *New Note*. A file with the same name in the templates folder replaces the built-in one.",
+  "config.templates.showBuiltIn": "Offer the built-in templates (Meeting, Daily, Weekly review, Project, 1-on-1, Standup, Bug report, Decision record, Retrospective, How-to, Reading notes, Credentials, Checklist) in *New Note*. A file with the same name in the templates folder replaces the built-in one.",
   "command.createStarter": "Create Starter Notes",
   "config.starter.offer": "When you choose an empty notes folder, offer to add starter folders (Daily, Projects, Meetings, Reference, Archive) and example notes.",
   "command.addTask": "Add Task…",

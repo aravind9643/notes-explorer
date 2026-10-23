@@ -367,6 +367,58 @@ _e.g. Option 2: a separate analytics database, starting with the two slowest rep
 `
   },
   {
+    // Offers to encrypt the new note straight away (see capture.newNote)
+    name: 'Credentials', icon: 'key', description: 'Logins, API keys and accounts, grouped by environment', encrypt: true,
+    body: `# {{title}}
+
+> Keep this note encrypted: right-click it → *Encrypt with Password…*. To hide values on screen as well, add
+> \`(?:password|secret|token|key)\\s*:\\s*(\\S+)\` to the \`notesExplorer.mask.patterns\` setting.
+
+**Last reviewed:** {{date}}
+
+## Production
+
+### {{cursor}}_e.g. Admin portal_
+
+- **URL:** _e.g. https://admin.example.com_
+- **Username:** _e.g. admin@example.com_
+- **Password:** _e.g. (paste it here)_
+- **2FA:** _e.g. authenticator app on my phone_
+- **Notes:** _e.g. shared with the support team; rotate every 90 days_
+
+## QA / Staging
+
+### _e.g. Staging site_
+
+- **URL:** _e.g. https://staging.example.com_
+- **Username:** _e.g. qa-tester_
+- **Password:** _e.g. (paste it here)_
+
+## Development
+
+### _e.g. Local database_
+
+- **Host:** _e.g. localhost:5432_
+- **Username:** _e.g. dev_
+- **Password:** _e.g. (paste it here)_
+
+## API keys
+
+| Service | Key name | Where it's used | Expires |
+| --- | --- | --- | --- |
+| _e.g. Payments_ | _e.g. live secret key_ | _e.g. checkout service_ | _e.g. 2027-01-31_ |
+
+- **Key:** _e.g. (paste the value here, not in the table)_
+
+## Recovery
+
+- **Recovery codes:** _e.g. printed copy in the office safe_
+- **Account owner:** _e.g. IT, it-help@example.com_
+
+#credentials
+`
+  },
+  {
     name: 'Checklist', icon: 'checklist', description: 'A reusable list of steps to tick off',
     body: `# {{title}}
 

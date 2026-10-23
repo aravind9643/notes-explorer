@@ -50,13 +50,13 @@ async function pickTemplate() {
       ...builtins.map(b => ({
         label: `$(${b.icon}) ${t(b.name)}`,
         description: b.overriddenBy ? t('customised in {0}', b.overriddenBy) : t(b.description),
-        name: b.overriddenBy, template: b.overriddenBy ? undefined : b.body
+        name: b.overriddenBy, template: b.overriddenBy ? undefined : b.body, encrypt: !!b.encrypt
       })));
   }
-  if (items.length === 1) return BLANK;
+  if (items.length === 1) return { text: BLANK };
   const pick = await vscode.window.showQuickPick(items, { placeHolder: t('Choose a template'), matchOnDescription: true });
   if (!pick) return undefined;
-  return pick.template || (pick.name && (await readTemplate(pick.name))) || BLANK;
+  return { text: pick.template || (pick.name && (await readTemplate(pick.name))) || BLANK, encrypt: !!pick.encrypt };
 }
 
 /** Template text for a name: your file in the templates folder, else the built-in one. */
@@ -77,7 +77,21 @@ async function newNote(dir) {
   const template = await pickTemplate();
   if (template === undefined) return;
   if (!path.extname(name)) name += '.md';
-  return createFromTemplate(path.join(dir, name), template, path.basename(name, path.extname(name)));
+  const file = await createFromTemplate(path.join(dir, name), template.text, path.basename(name, path.extname(name)));
+  // Templates meant for secrets (Credentials) offer encryption before anything sensitive is typed in
+  if (template.encrypt) {
+    const pick = await vscode.window.showWarningMessage(
+      t('This note is for passwords and keys. Encrypt it with a password now?'),
+      { detail: t('Otherwise it is saved as plain text that anyone with access to the folder can read. You can also encrypt it later: right-click it → Encrypt with Password.') },
+      t('Encrypt Now'), t('Later'));
+    if (pick === t('Encrypt Now')) {
+      // Save the fresh note first, so encryption reads what's on disk and nothing is left unsaved
+      const doc = vscode.workspace.textDocuments.find(d => d.uri.fsPath.toLowerCase() === file.toLowerCase());
+      if (doc && doc.isDirty) await doc.save();
+      await vscode.commands.executeCommand('notesExplorer.encryptNote', file);
+    }
+  }
+  return file;
 }
 
 /** Opens a daily note (creating it from templates/daily.md, if present): today + `offsetDays`, or `date`. */
