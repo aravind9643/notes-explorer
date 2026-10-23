@@ -22,7 +22,8 @@ function parseNote(text) {
     const h = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
     if (h) headings.push({ level: h[1].length, text: h[2], line: i });
     const t = TASK_RE.exec(line);
-    if (t) {
+    // Example lines from the built-in templates ("- [ ] _e.g. …_") aren't real tasks until they're edited
+    if (t && !/^_e\.g\./i.test(t[3].trim())) {
       const due = DUE_RE.exec(t[3]);
       const doneOn = DONE_RE.exec(t[3]);
       const taskTags = [...t[3].matchAll(TAG_RE)].map(m => m[1].toLowerCase());

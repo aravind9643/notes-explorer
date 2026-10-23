@@ -91,3 +91,15 @@ test('built-in templates: all render cleanly, names are unique, user files overr
   assert.strictEqual(m.builtins.find(b => b.name === 'Meeting').overriddenBy, 'Meeting.md');
   assert.deepStrictEqual(m.extra, ['My own.md']);
 });
+
+test('template example lines are not counted as tasks or reminders', () => {
+  const { BUILTIN } = require('../src/builtinTemplates');
+  const { renderTemplate } = require('../src/templates');
+  for (const b of BUILTIN) {
+    const n = parseNote(renderTemplate(b.body, { title: 'Sample', now: new Date(2026, 9, 23) }).text);
+    assert.ok(n.tasks.every(x => !/^_e\.g\./.test(x.text)), `${b.name}: example tasks ignored`);
+    assert.ok(n.tasks.every(x => !x.due), `${b.name}: no real due dates from examples`);
+  }
+  assert.strictEqual(parseNote('- [ ] _e.g. sample_\n- [ ] real one').tasks.length, 1);
+  assert.match(BUILTIN.find(b => b.name === 'Meeting').body, /_e\.g\. /, 'templates carry examples');
+});

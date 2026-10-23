@@ -10,7 +10,7 @@
 - **Show Note History** opens the note's saved versions in the Timeline.
 - **Exclude patterns** (`.gitignore` syntax, plus the notes folder's own `.gitignore`) and a file limit for very large folders.
 - **Getting-started walkthrough** (Help → Welcome).
-- **12 built-in templates**: Meeting, Daily, Weekly review, Project, 1-on-1, Standup, Bug report, Decision record, Retrospective, How-to, Reading notes and Checklist. Copy one to your templates folder to customise it.
+- **12 built-in templates**: Meeting, Daily, Weekly review, Project, 1-on-1, Standup, Bug report, Decision record, Retrospective, How-to, Reading notes and Checklist. Each comes with example lines showing what goes where; copy one to your templates folder to customise it.
 - Also published to **Open VSX** for VSCodium, Cursor, Windsurf and other editors.
 
 ### Changed
