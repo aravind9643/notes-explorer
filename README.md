@@ -1,6 +1,6 @@
 # Notes Explorer
 
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/AravindMerugu.notes-explorer?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=AravindMerugu.notes-explorer)
+[![VS Code Marketplace](https://vsmarketplacebadges.dev/version-short/AravindMerugu.notes-explorer.svg?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=AravindMerugu.notes-explorer)
 [![Open VSX](https://img.shields.io/open-vsx/v/AravindMerugu/notes-explorer?label=Open%20VSX)](https://open-vsx.org/extension/AravindMerugu/notes-explorer)
 
 Your notes folder in the VS Code sidebar, in every window, without opening the folder. Plain Markdown files on disk: no database, no account, no lock-in.
