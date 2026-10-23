@@ -22,7 +22,7 @@ jobs:
       - run: npm test
       # Packaging runs vscode:prepublish, which bundles src/ into dist/
       - run: npm run package
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: notes-explorer-vsix
           path: '*.vsix'
