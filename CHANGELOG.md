@@ -1,8 +1,14 @@
 # Changelog
 
-## 1.1.0
+## 1.2.0
 
 ### Added
+- **Add Task** (`Ctrl+Alt+T`): type a task in plain words, pick the note (Tasks, Todos, today's note, Inbox, pinned or any note) and the section.
+- **Natural due dates**: "tomorrow", "by friday", "next week", "in 3 days", "end of month", "30 oct", "5/11" become `@due(...)`.
+- **Carry over**: the first time you open the day's note, bring unfinished tasks from the previous daily note (move, copy, or turn off).
+- **Today view**: today's note, overdue tasks and tasks due today at the top of the sidebar.
+- **Quick Capture target**: the Inbox, today's note, or ask each time.
+- **Tasks grouped by section**: notes with several `##` sections show them as groups in the Tasks view.
 - **Encrypted notes**: password-protect a note (AES-256-GCM); it opens with the password and is saved encrypted.
 - **Several notes folders**: add folders and switch between them.
 - **Recurring tasks** with `@every(day|week|month|year|weekday|N days|monday…)`.

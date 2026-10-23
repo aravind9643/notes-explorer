@@ -2,7 +2,7 @@
   "name": "notes-explorer",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "AravindMerugu",
   "engines": {
     "vscode": "^1.80.0"
@@ -240,6 +240,48 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "%config.starter.offer%"
+        },
+        "notesExplorer.daily.carryOver": {
+          "type": "string",
+          "default": "ask",
+          "markdownDescription": "%config.daily.carryOver%",
+          "enum": [
+            "ask",
+            "move",
+            "copy",
+            "off"
+          ],
+          "enumDescriptions": [
+            "%config.daily.carryOver.ask%",
+            "%config.daily.carryOver.move%",
+            "%config.daily.carryOver.copy%",
+            "%config.daily.carryOver.off%"
+          ]
+        },
+        "notesExplorer.daily.carryOverHeading": {
+          "type": "string",
+          "default": "Carried over",
+          "markdownDescription": "%config.daily.carryOverHeading%"
+        },
+        "notesExplorer.capture.target": {
+          "type": "string",
+          "default": "note",
+          "markdownDescription": "%config.capture.target%",
+          "enum": [
+            "note",
+            "daily",
+            "ask"
+          ],
+          "enumDescriptions": [
+            "%config.capture.target.note%",
+            "%config.capture.target.daily%",
+            "%config.capture.target.ask%"
+          ]
+        },
+        "notesExplorer.tasks.groupBySection": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.tasks.groupBySection%"
         }
       }
     },
@@ -254,6 +296,11 @@
     },
     "views": {
       "notesExplorer": [
+        {
+          "id": "notesExplorer.today",
+          "name": "%view.today%",
+          "icon": "media/view-today.svg"
+        },
         {
           "id": "notesExplorer.quick",
           "name": "%view.quick%",
@@ -297,6 +344,11 @@
         "view": "notesExplorer.related",
         "contents": "%welcome.relatedNote%",
         "when": "!notesExplorer.activeIsCode"
+      },
+      {
+        "view": "notesExplorer.today",
+        "contents": "%welcome.today%",
+        "when": "notesExplorer.missingRoot"
       }
     ],
     "commands": [
@@ -599,6 +651,24 @@
         "title": "%command.createStarter%",
         "category": "%category%",
         "icon": "$(sparkle)"
+      },
+      {
+        "command": "notesExplorer.addTask",
+        "title": "%command.addTask%",
+        "category": "%category%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "notesExplorer.carryOver",
+        "title": "%command.carryOver%",
+        "category": "%category%",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "notesExplorer.toggleTaskSections",
+        "title": "%command.toggleTaskSections%",
+        "category": "%category%",
+        "icon": "$(list-tree)"
       }
     ],
     "keybindings": [
@@ -626,6 +696,11 @@
         "command": "notesExplorer.quickCapture",
         "key": "ctrl+alt+c",
         "mac": "cmd+alt+c"
+      },
+      {
+        "command": "notesExplorer.addTask",
+        "key": "ctrl+alt+t",
+        "mac": "cmd+alt+t"
       }
     ],
     "menus": {
@@ -804,6 +879,26 @@
           "command": "notesExplorer.createStarter",
           "when": "view == notesExplorer.tree",
           "group": "4_settings@3"
+        },
+        {
+          "command": "notesExplorer.addTask",
+          "when": "view == notesExplorer.today || view == notesExplorer.tasks",
+          "group": "navigation@0"
+        },
+        {
+          "command": "notesExplorer.openDaily",
+          "when": "view == notesExplorer.today",
+          "group": "navigation@1"
+        },
+        {
+          "command": "notesExplorer.carryOver",
+          "when": "view == notesExplorer.today",
+          "group": "1_daily"
+        },
+        {
+          "command": "notesExplorer.toggleTaskSections",
+          "when": "view == notesExplorer.tasks",
+          "group": "1_filter@2"
         }
       ],
       "view/item/context": [
@@ -936,6 +1031,11 @@
           "command": "notesExplorer.rename",
           "when": "view == notesExplorer.tree && viewItem == secureNote",
           "group": "3_edit@1"
+        },
+        {
+          "command": "notesExplorer.toggleTask",
+          "when": "view == notesExplorer.today && viewItem == task",
+          "group": "inline"
         }
       ],
       "explorer/context": [

@@ -16,11 +16,12 @@ function parseNote(text) {
   const lines = text.split(/\r?\n/);
   const tasks = [], tags = new Set(), links = [], headings = [];
   let inFence = false;
+  let section = null; // nearest "##"+ heading above the current line (a "# Title" does not count)
   lines.forEach((line, i) => {
     if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; return; }
     if (inFence) return;
     const h = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
-    if (h) headings.push({ level: h[1].length, text: h[2], line: i });
+    if (h) { headings.push({ level: h[1].length, text: h[2], line: i }); section = h[1].length > 1 ? h[2] : null; }
     const t = TASK_RE.exec(line);
     // Example lines from the built-in templates ("- [ ] _e.g. …_") aren't real tasks until they're edited
     if (t && !/^_e\.g\./i.test(t[3].trim())) {
@@ -29,7 +30,7 @@ function parseNote(text) {
       const taskTags = [...t[3].matchAll(TAG_RE)].map(m => m[1].toLowerCase());
       tasks.push({
         line: i, done: t[2] !== ' ', text: t[3].replace(DUE_RE, '').replace(DONE_RE, '').trim(),
-        due: due ? due[1] : null, doneOn: doneOn ? doneOn[1] : null, tags: taskTags
+        due: due ? due[1] : null, doneOn: doneOn ? doneOn[1] : null, tags: taskTags, section
       });
     }
     // `inline code` is blanked out (same length, so columns stay right): examples there are not links or tags

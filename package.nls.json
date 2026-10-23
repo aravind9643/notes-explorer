@@ -118,5 +118,21 @@
   "walkthrough.secure.description": "Encrypt a note with a password.\n[Learn how](command:notesExplorer.tree.focus)",
   "config.templates.showBuiltIn": "Offer the built-in templates (Meeting, Daily, Weekly review, Project, 1-on-1, Standup, Bug report, Decision record, Retrospective, How-to, Reading notes, Checklist) in *New Note*. A file with the same name in the templates folder replaces the built-in one.",
   "command.createStarter": "Create Starter Notes",
-  "config.starter.offer": "When you choose an empty notes folder, offer to add starter folders (Daily, Projects, Meetings, Reference, Archive) and example notes."
+  "config.starter.offer": "When you choose an empty notes folder, offer to add starter folders (Daily, Projects, Meetings, Reference, Archive) and example notes.",
+  "command.addTask": "Add Task…",
+  "command.carryOver": "Bring Unfinished Tasks to Today",
+  "command.toggleTaskSections": "Group Tasks by Section",
+  "view.today": "Today",
+  "welcome.today": "Set a notes folder to see today's note and what's due.\n[Set Notes Location](command:notesExplorer.changeLocation)",
+  "config.daily.carryOver.ask": "Ask each time",
+  "config.daily.carryOver.move": "Move them (they leave the old note)",
+  "config.daily.carryOver.copy": "Copy them (the old note keeps them too)",
+  "config.daily.carryOver.off": "Never",
+  "config.daily.carryOver": "When today's note is first created, bring over unfinished tasks from the previous daily note.",
+  "config.daily.carryOverHeading": "Section of today's note that carried-over tasks go under.",
+  "config.capture.target.note": "The note in #notesExplorer.capture.note# (Inbox by default)",
+  "config.capture.target.daily": "Today's daily note",
+  "config.capture.target.ask": "Ask each time (Inbox, today's note, Todos, Tasks)",
+  "config.capture.target": "Where *Quick Capture* (`Ctrl+Alt+C`) adds a line.",
+  "config.tasks.groupBySection": "In the Tasks view, show the `##` headings of notes whose tasks are spread over two or more sections."
 }

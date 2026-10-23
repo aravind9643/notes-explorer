@@ -81,28 +81,62 @@ async function newNote(dir) {
 }
 
 /** Opens a daily note (creating it from templates/daily.md, if present): today + `offsetDays`, or `date`. */
+const dailyPath = (d) => path.join(root(), cfg().get('daily.folder'), `${formatDate(d, cfg().get('daily.fileNameFormat'))}.md`);
+
+/** Creates the daily note for a date from its template if it doesn't exist. Returns { file, created, cursor }. */
+async function ensureDaily(d) {
+  const file = dailyPath(d);
+  if (fs.existsSync(file)) return { file, created: false, cursor: null };
+  // "daily.md" in the templates folder if you have one, otherwise the built-in Daily template
+  const template = (await templateText(cfg().get('daily.template'))) || '# {{date:dddd, DD MMMM YYYY}}\n\n{{cursor}}';
+  const r = renderTemplate(template, { title: path.basename(file, '.md'), now: d, dateFormat: cfg().get('dateFormat') });
+  await fsp.mkdir(path.dirname(file), { recursive: true });
+  await fsp.writeFile(file, r.text, { flag: 'wx' }).catch(err => { if (err.code !== 'EEXIST') throw err; });
+  return { file, created: true, cursor: r.cursor };
+}
+
+/**
+ * The most recent daily note before `d` (looking back up to 60 days), whatever the file name format.
+ * Weekends and days off are skipped naturally, because only existing notes count.
+ */
+function previousDaily(d) {
+  for (let back = 1; back <= 60; back++) {
+    const f = dailyPath(new Date(d.getFullYear(), d.getMonth(), d.getDate() - back));
+    if (fs.existsSync(f)) return f;
+  }
+  return null;
+}
+
 async function openDaily(offsetDays = 0, date) {
   const d = date ? new Date(date) : new Date();
   if (!date) d.setDate(d.getDate() + offsetDays);
-  const name = formatDate(d, cfg().get('daily.fileNameFormat'));
-  const file = path.join(root(), cfg().get('daily.folder'), `${name}.md`);
-  // "daily.md" in the templates folder if you have one, otherwise the built-in Daily template
-  const template = (await templateText(cfg().get('daily.template'))) || '# {{date:dddd, DD MMMM YYYY}}\n\n{{cursor}}';
-  const r = renderTemplate(template, { title: name, now: d, dateFormat: cfg().get('dateFormat') });
-  if (!fs.existsSync(file)) {
-    await fsp.mkdir(path.dirname(file), { recursive: true });
-    await fsp.writeFile(file, r.text);
-    const at = r.cursor || { line: 0, col: 0 };
+  const { file, created, cursor } = await ensureDaily(d);
+  if (created) {
+    const at = cursor || { line: 0, col: 0 };
     await openAt(file, at.line, at.col);
   } else await openAt(file, fs.readFileSync(file, 'utf8').split(/\r?\n/).length - 1);
-  return file;
+  return { file, created };
 }
 
 /** Appends one line to the inbox note without leaving the current editor. */
 async function quickCapture() {
-  const text = await vscode.window.showInputBox({ prompt: t('Capture to {0}', cfg().get('capture.note')), placeHolder: t('Type a thought, task or link…') });
+  // Where captures go: the inbox note (capture.note), today's daily note, or ask each time
+  const inbox = path.join(root(), cfg().get('capture.note'));
+  const daily = path.join(root(), cfg().get('daily.folder'), `${formatDate(new Date(), cfg().get('daily.fileNameFormat'))}.md`);
+  let file = cfg().get('capture.target') === 'daily' ? daily : inbox;
+  if (cfg().get('capture.target') === 'ask') {
+    const others = ['Todos.md', 'Tasks.md'].map(n => path.join(root(), n)).filter(f => fs.existsSync(f) && f.toLowerCase() !== inbox.toLowerCase());
+    const pick = await vscode.window.showQuickPick([
+      { label: `$(inbox) ${path.basename(inbox, path.extname(inbox))}`, f: inbox },
+      { label: `$(calendar) ${t("Today's note")}`, f: daily },
+      ...others.map(f => ({ label: `$(checklist) ${path.basename(f, '.md')}`, f }))
+    ], { placeHolder: t('Capture to…') });
+    if (!pick) return;
+    file = pick.f;
+  }
+  const text = await vscode.window.showInputBox({ prompt: t('Capture to {0}', path.relative(root(), file)), placeHolder: t('Type a thought, task or link…') });
   if (!text) return;
-  const file = path.join(root(), cfg().get('capture.note'));
+  if (file === daily) await ensureDaily(new Date()); // a new daily note starts from its template
   const line = renderTemplate(cfg().get('capture.format'), { text, dateFormat: cfg().get('dateFormat') }).text;
   await fsp.mkdir(path.dirname(file), { recursive: true });
   let prefix = '';
@@ -116,4 +150,4 @@ async function quickCapture() {
   return file;
 }
 
-module.exports = { newNote, openDaily, quickCapture, listTemplates, templatesDir };
+module.exports = { newNote, openDaily, ensureDaily, previousDaily, dailyPath, quickCapture, listTemplates, templatesDir };

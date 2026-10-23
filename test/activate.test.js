@@ -53,9 +53,9 @@ test('activate registers exactly the commands declared in package.json', async (
   const vscode = makeVscodeStub(registered);
   const origLoad = Module._load;
   Module._load = function (request, ...rest) { return request === 'vscode' ? vscode : origLoad.call(this, request, ...rest); };
+  const subscriptions = [];
   try {
     const ext = require('../src/extension');
-    const subscriptions = [];
     const state = new Map();
     ext.activate({
       subscriptions,
@@ -69,8 +69,9 @@ test('activate registers exactly the commands declared in package.json', async (
     assert.deepStrictEqual(unregistered, [], 'declared in package.json but not registered');
     assert.deepStrictEqual(undeclared, [], 'registered but not declared in package.json');
     assert.ok(subscriptions.length > registered.length, 'views, providers and listeners are disposed with the extension');
-    for (const d of subscriptions) d && d.dispose && d.dispose();
   } finally {
+    // Always dispose, so the extension's timers don't keep the test process alive after a failure
+    for (const d of subscriptions) d && d.dispose && d.dispose();
     Module._load = origLoad;
   }
 });

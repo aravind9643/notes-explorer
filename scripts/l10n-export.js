@@ -5,7 +5,7 @@ const path = require('path');
 
 const src = path.join(__dirname, '..', 'src');
 const out = {};
-for (const f of fs.readdirSync(src).filter(f => f.endsWith('.js'))) {
+for (const f of fs.readdirSync(src, { recursive: true }).filter(f => f.endsWith('.js'))) {
   const text = fs.readFileSync(path.join(src, f), 'utf8');
   for (const m of text.matchAll(/\b(?:t|tr)\('((?:\\.|[^'\\])*)'/g)) {
     const key = m[1].replace(/\\'/g, "'");

@@ -25,11 +25,13 @@ Everything is stored as ordinary `.md` files, so you can keep the folder in OneD
 | Browse & edit notes | Notes icon in the Activity Bar → click a note |
 | Quick open by name | `Ctrl+Alt+N` (pinned and recent notes are listed first) |
 | Search text in all notes | `Ctrl+Alt+F`. Toggle match case, whole word and regex with the buttons in the search box. Right-click a folder → *Search in Notes* to search only that folder; an active tag filter also limits the search |
-| Daily note | `Ctrl+Alt+D` or the calendar button opens `Daily/2026-10-23.md`; *Open Yesterday's Note* in the `…` menu |
-| Quick capture | `Ctrl+Alt+C` appends a line to `Inbox.md` without leaving your current file |
+| Daily note | `Ctrl+Alt+D` or the calendar button opens `Daily/2026-10-23.md`; *Open Yesterday's Note* in the `…` menu. The first time each day it offers to bring over unfinished tasks from your previous daily note |
+| Today view | Top of the sidebar: today's note, overdue tasks and tasks due today, with a count badge |
+| Quick capture | `Ctrl+Alt+C` appends a line to `Inbox.md` without leaving your current file (or to today's note, or ask each time: `notesExplorer.capture.target`) |
+| Add Task | `Ctrl+Alt+T`: type "call the bank tomorrow" or "report by friday"; pick Tasks, Todos, today's note or any note, and a section. The date becomes `@due(...)` |
 | Templates | *Manage Templates* in the `…` menu. New Note asks which template to use |
 | Pinned & recent | Right-click a note → *Pin Note*. The **Quick Access** view shows pinned and recently opened notes |
-| Tasks across all notes | **Tasks** view, click ✓ to mark done (adds `✓ 2026-10-23`); status bar shows the open count (⚠ overdue) |
+| Tasks across all notes | **Tasks** view, click ✓ to mark done (adds `✓ 2026-10-23`); notes with several `##` sections show them as groups; status bar shows the open count (⚠ overdue) |
 | Task filters | Filter button in the Tasks view: overdue, due today, next 7 days, no due date, completed this week, or by `#tag`. Sort button switches between grouped-by-note and by due date |
 | Archive finished tasks | Right-click a note → *Move Completed Tasks to Archive Section* moves `[x]` items under `## Completed / ### date` |
 | Reminders | `- [ ] Send report @due(2026-11-01)` |
@@ -156,6 +158,10 @@ Masking only changes what's drawn on screen. The file is never modified and the 
 | `notesExplorer.showHeadings` | `false` | Show note headings in the tree |
 | `notesExplorer.tasks.recurring` | `true` | Create the next `@every(...)` task when one is completed |
 | `notesExplorer.folders` | `[]` | Notes folders for *Switch Notes Folder* (per machine) |
+| `notesExplorer.daily.carryOver` | `ask` | `ask`, `move`, `copy` or `off` |
+| `notesExplorer.daily.carryOverHeading` | `Carried over` | Section for carried-over tasks |
+| `notesExplorer.capture.target` | `note` | `note` (Inbox), `daily` or `ask` |
+| `notesExplorer.tasks.groupBySection` | `true` | Group the Tasks view by `##` section |
 
 `pasteImages` works by adding one entry for your notes folder to VS Code's own `markdown.copyFiles.destination` setting; turning it off removes that entry.
 

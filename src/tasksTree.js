@@ -52,6 +52,15 @@ class TasksTree {
   }
 
   getTreeItem(el) {
+    if (el.kind === 'section') { // "## Heading" inside a note
+      const item = new vscode.TreeItem(el.section || t('(no section)'), vscode.TreeItemCollapsibleState.Expanded);
+      item.id = `section:${el.file}:${el.section}`;
+      item.description = String(el.count);
+      item.iconPath = new vscode.ThemeIcon('symbol-string');
+      item.contextValue = 'taskSection';
+      item.accessibilityInformation = { label: t('{0}, {1} tasks', item.label, el.count) };
+      return item;
+    }
     if (el.line === undefined) { // file group
       const count = el.count;
       const item = new vscode.TreeItem(path.basename(el.file).replace(/\.md$/i, ''), vscode.TreeItemCollapsibleState.Expanded);
@@ -99,7 +108,17 @@ class TasksTree {
       for (const x of list) counts.set(x.file, (counts.get(x.file) || 0) + 1);
       return [...counts].map(([file, count]) => ({ file, count }));
     }
-    return list.filter(x => x.file === el.file);
+    const inFile = list.filter(x => x.file === el.file);
+    if (el.kind === 'section') return inFile.filter(x => (x.section || null) === el.section);
+    // Notes with tasks under two or more "##" headings show those headings as a middle level
+    const order = [...new Set(inFile.map(x => x.section || null))];
+    if (!cfg().get('tasks.groupBySection') || order.length < 2) return inFile;
+    return order.map(section => ({ kind: 'section', file: el.file, section, count: inFile.filter(x => (x.section || null) === section).length }));
+  }
+
+  getParent(el) {
+    if (el.kind === 'section') return { file: el.file };
+    return undefined;
   }
 }
 

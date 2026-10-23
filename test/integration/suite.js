@@ -331,6 +331,84 @@ async function run() {
     await vscode.commands.executeCommand('notesExplorer.toggleHeadings');
   });
 
+  // ---------------- 1.2.0: adding tasks, carrying over, capture targets, and what the trees show
+  const api = ext.exports && ext.exports._test;
+  const labels = async (tree, el) => Promise.all((await tree.getChildren(el)).map(async c => {
+    const item = await tree.getTreeItem(c);
+    return typeof item.label === 'string' ? item.label : item.label.label;
+  }));
+  const isoIn = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+  await tryStep('Add Task turns "tomorrow" into a due date and files it under the chosen section', async () => {
+    write('Tasks.md', '# Tasks\n\n## Today\n\n- [ ] existing\n\n## Later\n\n- [ ] someday\n');
+    await vscode.commands.executeCommand('notesExplorer.refresh');
+    await answering({
+      showInputBox: ['Call the bank tomorrow'],
+      showQuickPick: [(items) => items.find(i => i.file && /Tasks\.md$/.test(i.file)), (items) => items.find(i => i.label === 'Later')]
+    }, () => vscode.commands.executeCommand('notesExplorer.addTask'));
+    await until(() => read('Tasks.md').includes(`- [ ] someday\n- [ ] Call the bank @due(${isoIn(1)})\n`), 'task in Later with due date');
+  });
+
+  await tryStep('unfinished tasks are carried over to a new daily note', async () => {
+    const yesterday = path.join(ROOT, 'Daily', `${isoIn(-3)}.md`);
+    write(path.relative(ROOT, yesterday), '# Earlier\n\n## Top 3 today\n\n- [ ] Finish slides\n  - [ ] speaker notes\n- [x] Done already\n');
+    const todayFile = path.join(ROOT, 'Daily', `${today()}.md`);
+    fs.rmSync(todayFile, { force: true });
+    await answering({ showInformationMessage: ['Move'] }, () => vscode.commands.executeCommand('notesExplorer.openDaily'));
+    await until(() => fs.existsSync(todayFile) && /## Carried over\n\n- \[ \] Finish slides\n {2}- \[ \] speaker notes/.test(read(path.relative(ROOT, todayFile))), 'carried into today');
+    const left = fs.readFileSync(yesterday, 'utf8');
+    assert.doesNotMatch(left, /Finish slides/, 'moved out of the old note');
+    assert.match(left, /- \[x\] Done already/, 'finished tasks stay');
+  });
+
+  await tryStep('Quick Capture can ask where to put the line', async () => {
+    await vscode.workspace.getConfiguration('notesExplorer').update('capture.target', 'ask', vscode.ConfigurationTarget.Global);
+    await answering({ showQuickPick: [(items) => items.find(i => /Tasks\.md$/.test(i.f || ''))], showInputBox: ['captured into tasks'] },
+      () => vscode.commands.executeCommand('notesExplorer.quickCapture'));
+    await until(() => /- captured into tasks\n$/.test(read('Tasks.md')), 'captured line');
+    await vscode.workspace.getConfiguration('notesExplorer').update('capture.target', undefined, vscode.ConfigurationTarget.Global);
+  });
+
+  await tryStep('Today view shows today\'s note, overdue and due-today tasks', async () => {
+    assert.ok(api, 'test handles exported');
+    write('Due.md', `# Due\n\n- [ ] Late thing @due(${isoIn(-2)})\n- [ ] Today thing @due(${today()})\n- [ ] Future @due(${isoIn(5)})\n`);
+    await vscode.commands.executeCommand('notesExplorer.refresh');
+    const top = await labels(api.trees.today);
+    assert.deepStrictEqual(top, ["Today's note", 'Overdue', 'Due today']);
+    const groups = await api.trees.today.getChildren();
+    assert.ok((await labels(api.trees.today, groups[1])).includes('Late thing'));
+    assert.deepStrictEqual(await labels(api.trees.today, groups[2]), ['Today thing']);
+  });
+
+  await tryStep('Tasks view groups a note\'s tasks by section', async () => {
+    await vscode.commands.executeCommand('notesExplorer.refresh');
+    const files = await api.trees.tasks.getChildren();
+    const tasksNote = files.find(f => /Tasks\.md$/.test(f.file));
+    assert.ok(tasksNote, 'Tasks.md listed');
+    // (the captured line is plain text, not a "- [ ]" task, so it adds no section of its own)
+    assert.deepStrictEqual(await labels(api.trees.tasks, tasksNote), ['Today', 'Later']);
+    const sections = await api.trees.tasks.getChildren(tasksNote);
+    assert.deepStrictEqual(await labels(api.trees.tasks, sections.find(s => s.section === 'Later')), ['someday', 'Call the bank']);
+  });
+
+  await tryStep('Notes tree lists folders first, then notes, with task counts', async () => {
+    const top = await api.trees.notes.getChildren();
+    const items = await Promise.all(top.map(p => api.trees.notes.getTreeItem(p)));
+    const kinds = items.map(i => i.contextValue);
+    assert.ok(kinds.indexOf('note') > kinds.lastIndexOf('folder'), 'folders before notes');
+    const due = items.find(i => i.label === 'Due');
+    assert.strictEqual(due.description, '3 open');
+  });
+
+  await tryStep('Quick Access shows pinned notes', async () => {
+    await vscode.commands.executeCommand('notesExplorer.pin', path.join(ROOT, 'Due.md'));
+    const groups = await api.trees.quick.getChildren();
+    const pinned = groups.find(g => g.group === 'pinned');
+    assert.ok(pinned, 'Pinned group');
+    assert.deepStrictEqual(await labels(api.trees.quick, pinned), ['Due']);
+    await vscode.commands.executeCommand('notesExplorer.unpin', path.join(ROOT, 'Due.md'));
+  });
+
   await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   console.log(['', 'Notes Explorer integration tests', ...results, ''].join('\n'));
   if (failed) throw new Error(`${failed} integration step(s) failed`);

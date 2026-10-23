@@ -91,6 +91,7 @@ Show how a project note works. Each \`##\` section below is a column when you ch
 | \`Ctrl+Alt+N\` | Open a note by name |
 | \`Ctrl+Alt+F\` | Search all notes |
 | \`Ctrl+Alt+C\` | Quick capture to [[Inbox]] |
+| \`Ctrl+Alt+T\` | Add a task; "tomorrow" or "by friday" sets the due date |
 
 On macOS use \`Cmd+Alt\` instead of \`Ctrl+Alt\`.
 
