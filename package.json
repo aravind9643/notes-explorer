@@ -1252,8 +1252,8 @@
     "theme": "dark"
   },
   "devDependencies": {
-    "@vscode/test-electron": "^2.5.2",
-    "esbuild": "^0.24.2"
+    "@vscode/test-electron": "^3.1.0",
+    "esbuild": "^0.28.2"
   },
   "pricing": "Free",
   "qna": "https://github.com/aravind9643/notes-explorer/issues"
