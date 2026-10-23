@@ -62,7 +62,8 @@ const vscode = {
 const load = Module._load;
 Module._load = function (req, ...rest) { return req === 'vscode' ? vscode : load.call(this, req, ...rest); };
 
-(async () => {
+/** Builds the three webview pages as standalone HTML files; each records what it posts in window.__sent. */
+async function buildPages() {
   const { NoteIndex } = require('../src/noteIndex');
   const { showGraph, showKanban, showCalendar } = require('../src/webviews');
   const index = new NoteIndex();
@@ -70,31 +71,70 @@ Module._load = function (req, ...rest) { return req === 'vscode' ? vscode : load
   showGraph(index);
   await showKanban(path.join(notes, 'Projects', 'Website.md'));
   showCalendar(index);
-
-  const browser = [
-    path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft/Edge/Application/msedge.exe'),
-    path.join(process.env.ProgramFiles || '', 'Google/Chrome/Application/chrome.exe'),
-    '/usr/bin/google-chrome', '/usr/bin/chromium', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-  ].find(p => fs.existsSync(p));
-  if (!browser) throw new Error('Edge or Chrome is needed to take screenshots');
-  fs.mkdirSync(OUT, { recursive: true });
   const names = ['graph', 'board', 'calendar'];
-  for (const [i, p] of panels.entries()) {
+  const vars = Object.entries(THEME).map(([k, v]) => `${k}:${v}`).join(';');
+  return panels.map((p, i) => {
     // Stand-in for acquireVsCodeApi, theme variables, and the messages the extension sent
-    const vars = Object.entries(THEME).map(([k, v]) => `${k}:${v}`).join(';');
-    const shim = `<script>window.acquireVsCodeApi=()=>({postMessage(){}});document.documentElement.style.cssText=${JSON.stringify(vars)};` +
+    const shim = `<script>window.__sent=[];window.acquireVsCodeApi=()=>({postMessage(m){window.__sent.push(m)}});document.documentElement.style.cssText=${JSON.stringify(vars)};` +
       `addEventListener('load',()=>{for(const m of ${JSON.stringify(p.messages)})dispatchEvent(new MessageEvent('message',{data:m}));});</script>`;
     const html = p.webview.html
       .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, '')
       .replace(/<script nonce="[^"]*">/, `${shim}<script>`);
     const file = path.join(notes, `${names[i]}.html`);
     fs.writeFileSync(file, html);
-    const png = path.join(OUT, `${names[i]}.png`);
+    return { name: names[i], file, messages: p.messages };
+  });
+}
+
+function findBrowser() {
+  return [
+    path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft/Edge/Application/msedge.exe'),
+    path.join(process.env.ProgramFiles || '', 'Google/Chrome/Application/chrome.exe'),
+    '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  ].find(p => fs.existsSync(p));
+}
+
+const cleanup = () => fs.rmSync(notes, { recursive: true, force: true });
+module.exports = { buildPages, findBrowser, cleanup, notesDir: notes };
+
+if (require.main === module) (async () => {
+  const pages = await buildPages();
+  const browser = findBrowser();
+  if (!browser) throw new Error('Edge or Chrome is needed to take screenshots');
+  fs.mkdirSync(OUT, { recursive: true });
+  for (const page of pages) {
+    const png = path.join(OUT, `${page.name}.png`);
     fs.rmSync(png, { force: true });
     execFileSync(browser, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1', '--virtual-time-budget=4000',
-      '--window-size=1100,640', `--screenshot=${png}`, require('url').pathToFileURL(file).href], { stdio: 'ignore' });
+      '--window-size=1100,640', `--screenshot=${png}`, require('url').pathToFileURL(page.file).href], { stdio: 'ignore' });
     for (let t = 0; t < 100 && !fs.existsSync(png); t++) await new Promise(r => setTimeout(r, 200)); // launcher may exit first
-    console.log(fs.existsSync(png) ? `docs/${names[i]}.png` : `failed: ${names[i]}`);
+    console.log(fs.existsSync(png) ? `docs/${page.name}.png` : `failed: ${page.name}`);
   }
-  setTimeout(() => fs.rmSync(notes, { recursive: true, force: true }), 3000);
+
+  // Overview banner for the top of the README / Marketplace page, built from the screenshots above
+  const img = (n) => `data:image/png;base64,${fs.readFileSync(path.join(OUT, `${n}.png`)).toString('base64')}`;
+  const banner = path.join(notes, 'overview.html');
+  fs.writeFileSync(banner, `<!doctype html><meta charset="utf-8"><style>
+    body { margin: 0; width: 1280px; height: 640px; overflow: hidden; background: #0f172a; font-family: "Segoe UI", system-ui, sans-serif; color: #e2e8f0; }
+    .wrap { display: grid; grid-template-columns: 430px 1fr; height: 100%; }
+    .text { padding: 64px 0 0 56px; }
+    h1 { font-size: 46px; margin: 0 0 14px; color: #fff; letter-spacing: -.5px; }
+    p { font-size: 20px; line-height: 1.5; margin: 0 0 28px; color: #cbd5e1; }
+    ul { list-style: none; padding: 0; margin: 0; font-size: 17px; line-height: 2; color: #94a3b8; }
+    li::before { content: "✓  "; color: #3b82f6; font-weight: 700; }
+    .shots { position: relative; }
+    .shots img { position: absolute; width: 620px; border-radius: 10px; border: 1px solid #334155; box-shadow: 0 24px 48px #0008; }
+    .a { top: 40px; left: 10px; } .b { top: 210px; left: 150px; } .c { top: 380px; left: 60px; }
+  </style><div class="wrap"><div class="text">
+    <h1>Notes Explorer</h1><p>Your notes folder in the sidebar of every VS Code window. Plain Markdown, no account.</p>
+    <ul><li>Daily notes &amp; quick capture</li><li>Tasks, due dates &amp; reminders</li><li>[[Links]], tags &amp; graph</li><li>Boards &amp; calendar</li><li>Encrypted notes</li><li>Export to HTML &amp; PDF</li></ul>
+  </div><div class="shots"><img class="a" src="${img('graph')}"><img class="b" src="${img('board')}"><img class="c" src="${img('calendar')}"></div></div>`);
+  const overview = path.join(OUT, 'overview.png');
+  fs.rmSync(overview, { force: true });
+  execFileSync(browser, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1', '--window-size=1280,640',
+    `--screenshot=${overview}`, require('url').pathToFileURL(banner).href], { stdio: 'ignore' });
+  for (let t = 0; t < 100 && !fs.existsSync(overview); t++) await new Promise(r => setTimeout(r, 200));
+  console.log(fs.existsSync(overview) ? 'docs/overview.png' : 'failed: overview');
+  setTimeout(cleanup, 3000);
 })().catch(err => { console.error(err); process.exitCode = 1; });

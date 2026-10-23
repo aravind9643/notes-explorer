@@ -16,33 +16,38 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm test
-      - run: npx --yes @vscode/vsce package
+      # Packaging runs vscode:prepublish, which bundles src/ into dist/
+      - run: npm run package
       - uses: actions/upload-artifact@v4
         with:
           name: notes-explorer-vsix
           path: '*.vsix'
-      # Pushing a tag like v0.2.0 also attaches the .vsix to a GitHub Release
+      # Pushing a tag like v1.1.0 also attaches the .vsix to a GitHub Release
       - if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: '*.vsix'
 
-  # Runs the extension inside a real VS Code (on a virtual display)
+  # Runs the bundled extension inside a real VS Code (on a virtual display), then drives the
+  # Graph, Board and Calendar pages in headless Chrome
   integration:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - uses: actions/cache@v4
         with:
           path: .vscode-test
           key: vscode-test-${{ runner.os }}
-      # Ubuntu 24.04 blocks the user namespaces Chrome's sandbox needs (used by the PDF export test)
+      # Ubuntu 24.04 blocks the user namespaces Chrome's sandbox needs (PDF export and webview tests)
       - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: xvfb-run -a npm run test:integration
+      - run: npm run test:webview

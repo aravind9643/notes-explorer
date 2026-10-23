@@ -1,7 +1,7 @@
 const vscode = require('vscode');
 const fs = require('fs/promises');
 const path = require('path');
-const { cfg, root, hidden, rootExists } = require('./util');
+const { cfg, root, hidden, rootExists, excludeMatcher, isSecureFile, secureUri } = require('./util');
 const { relativeTime } = require('./templates');
 const { t } = require('./l10n');
 
@@ -9,6 +9,7 @@ const MIME = 'application/vnd.code.tree.notesexplorer.tree';
 
 const fileIcon = (p) => {
   const name = path.basename(p).toLowerCase(), ext = path.extname(name);
+  if (ext === '.mdenc') return 'lock';
   if (ext === '.md' || ext === '.markdown' || ext === '.txt') return 'note';
   if (ext === '.json') return 'json';
   if (['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'].includes(ext)) return 'file-media';
@@ -35,16 +36,26 @@ class NotesTree {
   }
 
   async getTreeItem(p) {
+    if (typeof p === 'object') {
+      const item = new vscode.TreeItem(p.text, p.children.length ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None);
+      item.id = `h:${p.file}:${p.line}`;
+      item.iconPath = new vscode.ThemeIcon('symbol-string');
+      item.contextValue = 'heading';
+      item.tooltip = `${'#'.repeat(p.level)} ${p.text}`;
+      item.accessibilityInformation = { label: t('Heading {0}', p.text) };
+      item.command = { command: 'notesExplorer.openTask', title: t('Open'), arguments: [{ file: p.file, line: p.line }] };
+      return item;
+    }
     const st = await fs.stat(p);
     const isDir = st.isDirectory();
     const item = new vscode.TreeItem(
-      isDir ? path.basename(p) : path.basename(p).replace(/\.md$/i, ''),
+      isDir ? path.basename(p) : path.basename(p).replace(/\.(md|mdenc)$/i, ''),
       isDir ? (this.tagFilter || this.projectDirs.has(p) ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed)
-            : vscode.TreeItemCollapsibleState.None
+            : this.headingsOf(p).length ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None
     );
     item.id = p;
     item.resourceUri = vscode.Uri.file(p);
-    item.contextValue = isDir ? 'folder' : 'note';
+    item.contextValue = isDir ? 'folder' : isSecureFile(p) ? 'secureNote' : 'note';
     item.tooltip = p;
     // Explicit codicons keep the tree flat and monochrome instead of following the colourful file icon theme
     item.iconPath = new vscode.ThemeIcon(isDir ? 'folder' : fileIcon(p));
@@ -65,12 +76,31 @@ class NotesTree {
 ${p}
 
 ${t('Modified {0}', new Date(st.mtimeMs).toLocaleString())}`);
-      item.command = { command: 'vscode.open', title: 'Open', arguments: [item.resourceUri] };
+      item.command = { command: 'vscode.open', title: t('Open'), arguments: [isSecureFile(p) ? secureUri(p) : item.resourceUri] };
+      if (isSecureFile(p)) item.description = [item.description, t('encrypted')].filter(Boolean).join(' · ');
     }
     return item;
   }
 
+  /** Headings of a note as a tree (when notesExplorer.showHeadings is on). */
+  headingsOf(file) {
+    if (!cfg().get('showHeadings')) return [];
+    const n = this.index.cache.get(file);
+    if (!n || !n.headings.length) return [];
+    const top = [], stack = [];
+    for (const h of n.headings) {
+      const node = { ...h, file, children: [] };
+      while (stack.length && stack[stack.length - 1].level >= h.level) stack.pop();
+      (stack.length ? stack[stack.length - 1].children : top).push(node);
+      stack.push(node);
+    }
+    // A single H1 title adds nothing: show its sections directly
+    return top.length === 1 && top[0].level === 1 ? top[0].children : top;
+  }
+
   async getChildren(p) {
+    if (p && typeof p === 'object') return p.children;
+    if (p && !(await fs.stat(p).then(st => st.isDirectory(), () => false))) return this.headingsOf(p);
     if (!p) vscode.commands.executeCommand('setContext', 'notesExplorer.missingRoot', !rootExists());
     if (!rootExists()) return []; // empty tree shows the "Set Notes Location" welcome button
     const dir = p || root();
@@ -78,7 +108,9 @@ ${t('Modified {0}', new Date(st.mtimeMs).toLocaleString())}`);
     try { entries = await fs.readdir(dir, { withFileTypes: true }); }
     catch { return []; } // folder vanished or is unreadable
     const templates = cfg().get('templatesFolder');
-    const visible = entries.filter(e => !(e.isDirectory() && (hidden().has(e.name) || (!p && e.name === templates))));
+    const exclude = excludeMatcher();
+    const visible = entries.filter(e => !(e.isDirectory() && (hidden().has(e.name) || (!p && e.name === templates)))
+      && !exclude(path.relative(root(), path.join(dir, e.name)), e.isDirectory()));
     const sortBy = cfg().get('sortBy');
     const stats = new Map();
     if (sortBy !== 'name')
@@ -99,13 +131,14 @@ ${t('Modified {0}', new Date(st.mtimeMs).toLocaleString())}`);
   }
 
   getParent(p) {
+    if (typeof p === 'object') return p.file; // headings: the tree only needs the note for reveal()
     const parent = path.dirname(p);
     return !root() || parent.toLowerCase() === root().toLowerCase() ? undefined : parent;
   }
 
   // Drag & drop: move notes/folders between folders
   handleDrag(sources, data) {
-    data.set(MIME, new vscode.DataTransferItem(sources));
+    data.set(MIME, new vscode.DataTransferItem(sources.filter(x => typeof x === 'string')));
   }
 
   async handleDrop(target, data) {

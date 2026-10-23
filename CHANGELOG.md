@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1.0
+
+### Added
+- **Encrypted notes**: password-protect a note (AES-256-GCM); it opens with the password and is saved encrypted.
+- **Several notes folders**: add folders and switch between them.
+- **Recurring tasks** with `@every(day|week|month|year|weekday|N days|monday…)`.
+- **Headings** in the tree, and `[[Note#Heading]]` links with completion.
+- **Show Note History** opens the note's saved versions in the Timeline.
+- **Exclude patterns** (`.gitignore` syntax, plus the notes folder's own `.gitignore`) and a file limit for very large folders.
+- **Getting-started walkthrough** (Help → Welcome).
+- Also published to **Open VSX** for VSCodium, Cursor, Windsurf and other editors.
+
+### Changed
+- The extension is bundled into a single file, so it loads faster and the package is smaller.
+- Exported HTML and PDF no longer run scripts from notes: scripts and event handlers are removed and a Content Security Policy blocks the rest.
+- Views have their own icons when moved to another sidebar or panel.
+
 ## 1.0.0
 
 First public release.

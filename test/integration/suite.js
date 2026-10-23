@@ -218,6 +218,88 @@ async function run() {
     fs.rmSync(code, { force: true });
   });
 
+  await tryStep('exported HTML has no scripts and blocks them with a CSP', async () => {
+    write('Unsafe.md', '# Unsafe\n\n<script>alert(1)</script>\n\n<a href="javascript:alert(1)">x</a> <img src="x" onerror="alert(1)">\n');
+    const out = path.join(ROOT, '..', `notes-it-unsafe-${Date.now()}.html`);
+    await answering({ showSaveDialog: [vscode.Uri.file(out)] },
+      () => vscode.commands.executeCommand('notesExplorer.exportHtml', path.join(ROOT, 'Unsafe.md')));
+    const html = await until(() => fs.existsSync(out) && fs.readFileSync(out, 'utf8'), 'export file');
+    assert.doesNotMatch(html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, ''), /<script|javascript:|onerror/i);
+    assert.match(html, /Content-Security-Policy" content="default-src 'none'/);
+    fs.rmSync(out, { force: true });
+  });
+
+  await tryStep('completing a recurring task adds the next one', async () => {
+    write('Chores.md', '# Chores\n\n- [ ] Water plants @every(week) @due(2026-10-23)\n');
+    await vscode.commands.executeCommand('notesExplorer.refresh');
+    await vscode.commands.executeCommand('notesExplorer.toggleTask', { file: path.join(ROOT, 'Chores.md'), line: 2 });
+    const text = await until(() => /\[ \] Water plants @every\(week\) @due\(2026-10-30\)/.test(read('Chores.md')) && read('Chores.md'), 'next occurrence');
+    assert.match(text, new RegExp(`- \\[x\\] Water plants @due\\(2026-10-23\\) ✓ ${today()}\\n- \\[ \\] Water plants @every\\(week\\) @due\\(2026-10-30\\)`));
+  });
+
+  await tryStep('[[Note#Heading]] opens at the heading', async () => {
+    write('Guide.md', '# Guide\n\nintro\n\n## Install\n\nsteps\n');
+    await vscode.commands.executeCommand('notesExplorer.refresh');
+    await vscode.commands.executeCommand('notesExplorer.openLink', 'Guide', { heading: 'install' });
+    await until(() => { const ed = vscode.window.activeTextEditor; return ed && /Guide\.md$/i.test(ed.document.uri.fsPath) && ed.selection.active.line === 4; }, 'caret on heading');
+  });
+
+  await tryStep('exclude patterns and .gitignore keep files out of the index', async () => {
+    write('Scratch/tmp.md', '- [ ] hidden scratch task\n');
+    write('Logs/x.md', '- [ ] hidden log task\n');
+    write('.gitignore', 'Logs/\n');
+    await vscode.workspace.getConfiguration('notesExplorer').update('exclude', ['Scratch/'], vscode.ConfigurationTarget.Global);
+    await vscode.commands.executeCommand('notesExplorer.refresh');
+    let picked;
+    await answering({ showQuickPick: [(items) => { picked = items; return undefined; }] }, () => vscode.commands.executeCommand('notesExplorer.quickOpen'));
+    const names = picked.map(i => i.p);
+    assert.ok(names.some(p => /Guide\.md$/.test(p)), 'normal notes listed');
+    assert.ok(!names.some(p => /Scratch|Logs/.test(p)), 'excluded folders not listed');
+    await vscode.workspace.getConfiguration('notesExplorer').update('exclude', undefined, vscode.ConfigurationTarget.Global);
+    fs.rmSync(path.join(ROOT, '.gitignore'));
+  });
+
+  await tryStep('encrypt a note, edit it, and the file on disk stays encrypted', async () => {
+    write('Vault.md', '# Vault\n\npin: 4321\n');
+    const plain = path.join(ROOT, 'Vault.md'), enc = path.join(ROOT, 'Vault.mdenc');
+    await answering({ showWarningMessage: ['Encrypt'], showInputBox: ['s3cret pass', 's3cret pass'] },
+      () => vscode.commands.executeCommand('notesExplorer.encryptNote', plain));
+    await until(() => fs.existsSync(enc) && !fs.existsSync(plain), 'encrypted file replaces the original');
+    assert.doesNotMatch(fs.readFileSync(enc, 'utf8'), /4321|Vault/);
+    const ed = await until(() => { const e = vscode.window.activeTextEditor; return e && e.document.uri.scheme === 'notes-secure' ? e : null; }, 'decrypted editor');
+    assert.match(ed.document.getText(), /pin: 4321/);
+    await ed.edit(b => b.insert(new vscode.Position(3, 0), 'added line\n'));
+    await ed.document.save();
+    const onDisk = fs.readFileSync(enc, 'utf8');
+    assert.doesNotMatch(onDisk, /added line|4321/);
+    assert.match(require('../../src/secureNote').decrypt(onDisk, 's3cret pass'), /added line/);
+    // Locking forgets the password: reopening asks again, and a wrong password is refused
+    await vscode.commands.executeCommand('notesExplorer.lockSecure');
+    await answering({ showWarningMessage: ['Remove Password'], showInputBox: ['wrong', 's3cret pass'] },
+      () => vscode.commands.executeCommand('notesExplorer.decryptNote', enc));
+    await until(() => fs.existsSync(plain) && !fs.existsSync(enc), 'decrypted back to .md');
+    assert.match(read('Vault.md'), /added line/);
+  });
+
+  await tryStep('switching notes folders', async () => {
+    const other = fs.mkdtempSync(path.join(ROOT, '..', 'notes-it-other-'));
+    fs.writeFileSync(path.join(other, 'Elsewhere.md'), '# Elsewhere\n');
+    await vscode.workspace.getConfiguration('notesExplorer').update('folders', [{ name: 'Main', path: ROOT }, { name: 'Other', path: other }], vscode.ConfigurationTarget.Global);
+    await answering({ showQuickPick: [(items) => items.find(i => i.folder && i.folder.name === 'Other')] }, () => vscode.commands.executeCommand('notesExplorer.switchFolder'));
+    await until(() => vscode.workspace.getConfiguration('notesExplorer').get('rootPath') === other, 'rootPath switched');
+    await answering({ showQuickPick: [(items) => items.find(i => i.folder && i.folder.name === 'Main')] }, () => vscode.commands.executeCommand('notesExplorer.switchFolder'));
+    await until(() => vscode.workspace.getConfiguration('notesExplorer').get('rootPath') === ROOT, 'switched back');
+    await vscode.workspace.getConfiguration('notesExplorer').update('folders', undefined, vscode.ConfigurationTarget.Global);
+    fs.rmSync(other, { recursive: true, force: true });
+  });
+
+  await tryStep('headings appear in the tree and history opens the Timeline', async () => {
+    await vscode.commands.executeCommand('notesExplorer.toggleHeadings');
+    await until(() => vscode.workspace.getConfiguration('notesExplorer').get('showHeadings') === true, 'setting on');
+    await vscode.commands.executeCommand('notesExplorer.showHistory', path.join(ROOT, 'Guide.md'));
+    await vscode.commands.executeCommand('notesExplorer.toggleHeadings');
+  });
+
   await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   console.log(['', 'Notes Explorer integration tests', ...results, ''].join('\n'));
   if (failed) throw new Error(`${failed} integration step(s) failed`);

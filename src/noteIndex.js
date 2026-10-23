@@ -10,15 +10,17 @@ const DUE_RE = /@due\((\d{4}-\d{2}-\d{2})\)/;
 const DONE_RE = /\s*✓\s*(\d{4}-\d{2}-\d{2})\s*$/;
 // A tag starts a word, begins with a letter, and is not a Markdown heading ("# Title") or URL fragment ("(#anchor)")
 const TAG_RE = /(?:^|[\s,;])#([A-Za-z][\w/-]*)/g;
-const LINK_RE = /\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]/g;
+const LINK_RE = /\[\[([^\]|#]+)(?:#([^\]|]*))?(?:\|[^\]]*)?\]\]/g;
 
 function parseNote(text) {
   const lines = text.split(/\r?\n/);
-  const tasks = [], tags = new Set(), links = [];
+  const tasks = [], tags = new Set(), links = [], headings = [];
   let inFence = false;
   lines.forEach((line, i) => {
     if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; return; }
     if (inFence) return;
+    const h = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (h) headings.push({ level: h[1].length, text: h[2], line: i });
     const t = TASK_RE.exec(line);
     if (t) {
       const due = DUE_RE.exec(t[3]);
@@ -30,9 +32,9 @@ function parseNote(text) {
       });
     }
     for (const m of line.matchAll(TAG_RE)) tags.add(m[1].toLowerCase());
-    for (const m of line.matchAll(LINK_RE)) links.push({ target: m[1].trim(), line: i, col: m.index, length: m[0].length });
+    for (const m of line.matchAll(LINK_RE)) links.push({ target: m[1].trim(), heading: m[2] ? m[2].trim() : null, line: i, col: m.index, length: m[0].length });
   });
-  return { lines, tasks, tags: [...tags], links };
+  return { lines, tasks, tags: [...tags], links, headings };
 }
 
 const noteKey = (file) => path.basename(file, path.extname(file)).toLowerCase();
@@ -43,15 +45,17 @@ class NoteIndex {
   invalidate(file) { if (file) this.cache.delete(file); else this.cache.clear(); }
 
   /** Lists all files under root (async), skipping hidden folder names. */
-  async listFiles(root, hidden) {
+  async listFiles(root, hidden, { exclude, maxFiles = Infinity } = {}) {
     const out = [];
     const walk = async (dir) => {
+      if (out.length >= maxFiles) return;
       let entries;
       try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch { return; }
       await Promise.all(entries.map(async (e) => {
         const p = path.join(dir, e.name);
+        if (exclude && exclude(path.relative(root, p), e.isDirectory())) return;
         if (e.isDirectory()) { if (!hidden.has(e.name)) await walk(p); }
-        else if (e.isFile()) out.push(p);
+        else if (e.isFile() && out.length < maxFiles) out.push(p);
       }));
     };
     await walk(root);
@@ -59,9 +63,11 @@ class NoteIndex {
   }
 
   /** Re-parses only files whose mtime changed since last scan. Returns Map<file, parsed>. */
-  async scan(root, hidden) {
+  async scan(root, hidden, opts = {}) {
     if (root !== this.root) { this.cache.clear(); this.root = root; }
-    const files = (await this.listFiles(root, hidden)).filter(f => TEXT_EXT.has(path.extname(f).toLowerCase()));
+    const all = await this.listFiles(root, hidden, opts);
+    this.truncated = Number.isFinite(opts.maxFiles) && all.length >= opts.maxFiles;
+    const files = all.filter(f => TEXT_EXT.has(path.extname(f).toLowerCase()));
     const live = new Set(files);
     for (const f of this.cache.keys()) if (!live.has(f)) this.cache.delete(f);
     await Promise.all(files.map(async (f) => {
@@ -141,6 +147,13 @@ class NoteIndex {
         nodes.get(f).links++; nodes.get(to).links++;
       }
     return { nodes: [...nodes.values()], edges };
+  }
+
+  /** Line of a heading in a note (case-insensitive), or null. */
+  headingLine(file, heading) {
+    const n = this.cache.get(file);
+    const h = n && n.headings.find(x => x.text.toLowerCase() === String(heading).toLowerCase());
+    return h ? h.line : null;
   }
 
   /** [[links]] whose target note doesn't exist, for one file. */

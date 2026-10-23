@@ -8,6 +8,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { root, hidden } = require('./util');
 const { t } = require('./l10n');
+const { sanitizeHtml, EXPORT_CSP } = require('./sanitize');
 
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -25,11 +26,11 @@ function absolutize(html, baseDir) {
 async function renderNote(file) {
   const md = flattenWikiLinks(await fsp.readFile(file, 'utf8'));
   const html = await vscode.commands.executeCommand('markdown.api.render', md);
-  return absolutize(String(html || ''), path.dirname(file));
+  return absolutize(sanitizeHtml(String(html || '')), path.dirname(file));
 }
 
 function wrap(title, body) {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title>
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${EXPORT_CSP}"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title>
 <style>
   body { font: 15px/1.6 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1f2328; max-width: 860px; margin: 32px auto; padding: 0 24px; }
   h1, h2, h3 { line-height: 1.25; } h1 { border-bottom: 1px solid #d0d7de; padding-bottom: .3em; }

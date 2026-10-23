@@ -10,3 +10,4 @@ scripts/**
 package-lock.json
 docs/**
 CONTRIBUTING.md
+src/**

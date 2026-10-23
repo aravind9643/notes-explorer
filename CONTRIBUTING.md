@@ -4,7 +4,9 @@
 
 - `npm install`, then press `F5` with this folder open to launch an Extension Development Host.
 - `npm test`: unit tests plus an activation check against a stubbed VS Code API (plain Node, no VS Code needed).
+- `npm run build`: bundles `src/` into `dist/extension.js` with esbuild (run automatically before packaging and integration tests).
 - `npm run test:integration`: end-to-end checks inside a real VS Code (downloaded to `.vscode-test/` on first run) with a temporary notes folder and profile. CI runs it on every push.
+- `npm run test:webview`: drives the Graph, Board and Calendar pages in headless Edge/Chrome (drag & drop, keyboard, clicks, zoom, pan). Needs Node 22+.
 - `npm run screenshots`: regenerates the images in `docs/` (needs Edge or Chrome).
 - `npm run package`: builds the `.vsix`.
 
@@ -23,3 +25,7 @@ Menu and setting text lives in `package.nls.json`; messages in code use `t('…'
      (`https://app.vssps.visualstudio.com/_apis/profile/profiles/me`), then add it as *Contributor* under the publisher's **Members**.
      With a personal Microsoft account this ID differs from the one the Marketplace website uses.
    - `npm run publish:check` confirms access; `npm run publish` publishes.
+4. Publish the same package to [Open VSX](https://open-vsx.org) (used by VSCodium, Cursor, Windsurf and others):
+   - Once: sign in at open-vsx.org with GitHub, sign the publisher agreement, create an access token under *Settings → Access Tokens*, then
+     `npx ovsx create-namespace AravindMerugu -p <token>`.
+   - Each release: `npm run package`, then set `OVSX_PAT` to the token and run `npm run publish:ovsx`.

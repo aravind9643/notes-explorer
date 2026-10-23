@@ -2,12 +2,12 @@
   "name": "notes-explorer",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "AravindMerugu",
   "engines": {
     "vscode": "^1.80.0"
   },
-  "main": "./src/extension.js",
+  "main": "./dist/extension.js",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -181,6 +181,55 @@
           "default": "",
           "markdownDescription": "%config.export.browserPath%",
           "scope": "machine"
+        },
+        "notesExplorer.exclude": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "%config.exclude%",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notesExplorer.useGitignore": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.useGitignore%"
+        },
+        "notesExplorer.maxFiles": {
+          "type": "number",
+          "default": 20000,
+          "markdownDescription": "%config.maxFiles%",
+          "minimum": 100
+        },
+        "notesExplorer.showHeadings": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.showHeadings%"
+        },
+        "notesExplorer.tasks.recurring": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.tasks.recurring%"
+        },
+        "notesExplorer.folders": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "%config.folders%",
+          "scope": "machine",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
         }
       }
     },
@@ -198,19 +247,23 @@
         {
           "id": "notesExplorer.quick",
           "name": "%view.quick%",
+          "icon": "media/view-quick.svg",
           "when": "notesExplorer.hasQuickAccess"
         },
         {
           "id": "notesExplorer.tree",
-          "name": "%view.tree%"
+          "name": "%view.tree%",
+          "icon": "media/notes.svg"
         },
         {
           "id": "notesExplorer.tasks",
-          "name": "%view.tasks%"
+          "name": "%view.tasks%",
+          "icon": "media/view-tasks.svg"
         },
         {
           "id": "notesExplorer.related",
           "name": "%view.related%",
+          "icon": "media/view-related.svg",
           "visibility": "collapsed"
         }
       ]
@@ -488,6 +541,48 @@
         "title": "%command.exportPdf%",
         "category": "%category%",
         "icon": "$(file-pdf)"
+      },
+      {
+        "command": "notesExplorer.encryptNote",
+        "title": "%command.encryptNote%",
+        "category": "%category%",
+        "icon": "$(lock)"
+      },
+      {
+        "command": "notesExplorer.decryptNote",
+        "title": "%command.decryptNote%",
+        "category": "%category%",
+        "icon": "$(unlock)"
+      },
+      {
+        "command": "notesExplorer.lockSecure",
+        "title": "%command.lockSecure%",
+        "category": "%category%",
+        "icon": "$(lock)"
+      },
+      {
+        "command": "notesExplorer.switchFolder",
+        "title": "%command.switchFolder%",
+        "category": "%category%",
+        "icon": "$(folder-library)"
+      },
+      {
+        "command": "notesExplorer.addFolder",
+        "title": "%command.addFolder%",
+        "category": "%category%",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "notesExplorer.toggleHeadings",
+        "title": "%command.toggleHeadings%",
+        "category": "%category%",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "notesExplorer.showHistory",
+        "title": "%command.showHistory%",
+        "category": "%category%",
+        "icon": "$(history)"
       }
     ],
     "keybindings": [
@@ -668,6 +763,26 @@
           "command": "notesExplorer.filterTasks",
           "when": "view == notesExplorer.tasks && notesExplorer.tasksFiltered",
           "group": "1_filter"
+        },
+        {
+          "command": "notesExplorer.switchFolder",
+          "when": "view == notesExplorer.tree && config.notesExplorer.folders != []",
+          "group": "navigation@0"
+        },
+        {
+          "command": "notesExplorer.switchFolder",
+          "when": "view == notesExplorer.tree",
+          "group": "4_settings@2"
+        },
+        {
+          "command": "notesExplorer.toggleHeadings",
+          "when": "view == notesExplorer.tree",
+          "group": "3_view@3"
+        },
+        {
+          "command": "notesExplorer.lockSecure",
+          "when": "view == notesExplorer.tree",
+          "group": "3_view@6"
         }
       ],
       "view/item/context": [
@@ -698,12 +813,12 @@
         },
         {
           "command": "notesExplorer.rename",
-          "when": "view == notesExplorer.tree",
+          "when": "view == notesExplorer.tree && viewItem != heading",
           "group": "3_edit@1"
         },
         {
           "command": "notesExplorer.delete",
-          "when": "view == notesExplorer.tree",
+          "when": "view == notesExplorer.tree && viewItem != heading",
           "group": "3_edit@2"
         },
         {
@@ -713,7 +828,7 @@
         },
         {
           "command": "notesExplorer.copyPath",
-          "when": "view == notesExplorer.tree",
+          "when": "view == notesExplorer.tree && viewItem != heading",
           "group": "4_copy@2"
         },
         {
@@ -723,7 +838,7 @@
         },
         {
           "command": "notesExplorer.reveal",
-          "when": "view == notesExplorer.tree",
+          "when": "view == notesExplorer.tree && viewItem != heading",
           "group": "9_misc"
         },
         {
@@ -763,12 +878,12 @@
         },
         {
           "command": "notesExplorer.exportHtml",
-          "when": "view == notesExplorer.tree",
+          "when": "view == notesExplorer.tree && viewItem != heading",
           "group": "7_export@1"
         },
         {
           "command": "notesExplorer.exportPdf",
-          "when": "view == notesExplorer.tree",
+          "when": "view == notesExplorer.tree && viewItem != heading",
           "group": "7_export@2"
         },
         {
@@ -780,6 +895,26 @@
           "command": "notesExplorer.archiveCompleted",
           "when": "view == notesExplorer.tasks && viewItem == taskFile",
           "group": "1_file"
+        },
+        {
+          "command": "notesExplorer.encryptNote",
+          "when": "view == notesExplorer.tree && viewItem == note",
+          "group": "8_secure"
+        },
+        {
+          "command": "notesExplorer.decryptNote",
+          "when": "view == notesExplorer.tree && viewItem == secureNote",
+          "group": "8_secure"
+        },
+        {
+          "command": "notesExplorer.showHistory",
+          "when": "view == notesExplorer.tree && viewItem == note",
+          "group": "6_views@3"
+        },
+        {
+          "command": "notesExplorer.rename",
+          "when": "view == notesExplorer.tree && viewItem == secureNote",
+          "group": "3_edit@1"
         }
       ],
       "explorer/context": [
@@ -861,7 +996,82 @@
           "group": "navigation@90"
         }
       ]
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "gettingStarted",
+        "title": "%walkthrough.title%",
+        "description": "%walkthrough.description%",
+        "steps": [
+          {
+            "id": "folder",
+            "title": "%walkthrough.folder.title%",
+            "description": "%walkthrough.folder.description%",
+            "media": {
+              "markdown": "media/walkthrough/folder.md"
+            },
+            "completionEvents": [
+              "onSettingChanged:notesExplorer.rootPath"
+            ]
+          },
+          {
+            "id": "daily",
+            "title": "%walkthrough.daily.title%",
+            "description": "%walkthrough.daily.description%",
+            "media": {
+              "markdown": "media/walkthrough/daily.md"
+            },
+            "completionEvents": [
+              "onCommand:notesExplorer.openDaily"
+            ]
+          },
+          {
+            "id": "tasks",
+            "title": "%walkthrough.tasks.title%",
+            "description": "%walkthrough.tasks.description%",
+            "media": {
+              "markdown": "media/walkthrough/tasks.md"
+            },
+            "completionEvents": [
+              "onView:notesExplorer.tasks"
+            ]
+          },
+          {
+            "id": "links",
+            "title": "%walkthrough.links.title%",
+            "description": "%walkthrough.links.description%",
+            "media": {
+              "markdown": "media/walkthrough/links.md"
+            },
+            "completionEvents": [
+              "onCommand:notesExplorer.showGraph"
+            ]
+          },
+          {
+            "id": "find",
+            "title": "%walkthrough.find.title%",
+            "description": "%walkthrough.find.description%",
+            "media": {
+              "markdown": "media/walkthrough/find.md"
+            },
+            "completionEvents": [
+              "onCommand:notesExplorer.search"
+            ]
+          },
+          {
+            "id": "secure",
+            "title": "%walkthrough.secure.title%",
+            "description": "%walkthrough.secure.description%",
+            "media": {
+              "markdown": "media/walkthrough/secure.md"
+            },
+            "completionEvents": [
+              "onCommand:notesExplorer.encryptNote"
+            ]
+          }
+        ]
+      }
+    ]
   },
   "license": "MIT",
   "icon": "media/icon.png",
@@ -890,12 +1100,17 @@
   ],
   "scripts": {
     "test": "node --test test/*.test.js",
-    "package": "npx --yes @vscode/vsce package",
+    "package": "npx --yes @vscode/vsce@4 package",
     "publish": "npx --yes @vscode/vsce@4 publish --azure-credential",
     "l10n": "node scripts/l10n-export.js",
     "test:integration": "node test/integration/run.js",
     "screenshots": "node scripts/render-webviews.js",
-    "publish:check": "npx --yes @vscode/vsce@4 verify-pat --azure-credential AravindMerugu"
+    "publish:check": "npx --yes @vscode/vsce@4 verify-pat --azure-credential AravindMerugu",
+    "build": "esbuild src/extension.js --bundle --platform=node --target=node18 --format=cjs --external:vscode --minify --outfile=dist/extension.js",
+    "vscode:prepublish": "npm run build",
+    "pretest:integration": "npm run build",
+    "test:webview": "node test/webview/run.js",
+    "publish:ovsx": "npx --yes ovsx publish --packagePath notes-explorer-1.1.0.vsix"
   },
   "l10n": "./l10n",
   "extensionKind": [
@@ -916,7 +1131,9 @@
     "theme": "dark"
   },
   "devDependencies": {
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.24.2"
   },
-  "pricing": "Free"
+  "pricing": "Free",
+  "qna": "https://github.com/aravind9643/notes-explorer/issues"
 }

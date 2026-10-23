@@ -1,6 +1,13 @@
 # Notes Explorer
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/AravindMerugu.notes-explorer?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=AravindMerugu.notes-explorer)
+[![Open VSX](https://img.shields.io/open-vsx/v/AravindMerugu/notes-explorer?label=Open%20VSX)](https://open-vsx.org/extension/AravindMerugu/notes-explorer)
+
 Your notes folder in the VS Code sidebar, in every window, without opening the folder. Plain Markdown files on disk: no database, no account, no lock-in.
+
+![Notes Explorer: graph, board and calendar views](docs/overview.png)
+
+Works in VS Code and in editors that install from Open VSX, such as VSCodium, Cursor and Windsurf.
 
 ## Getting started
 
@@ -39,6 +46,13 @@ Everything is stored as ordinary `.md` files, so you can keep the folder in OneD
 | Paste images | Paste or drop an image into a note; it's saved to `assets/` next to the note and linked |
 | Hide sensitive values | Off by default. Add patterns to `notesExplorer.mask.patterns`; matching values show as `••••••`, and hovering offers *Copy* |
 | Sort & dates | `…` → *Sort By…* (name, modified, created) and *Show/Hide Modified Time* |
+| Recurring tasks | `- [ ] Water plants @every(week) @due(2026-10-23)`: ticking it adds the next one. Rules: `day`, `week`, `month`, `year`, `weekday`, `3 days`, `2 weeks`, `monday`, `mon,thu` |
+| Encrypted notes | Right-click a note → *Encrypt with Password…*. It opens only with the password and is saved encrypted |
+| Several notes folders | `…` → *Switch Notes Folder…* to add folders (for example Work and Personal) and switch between them |
+| Headings | `…` → *Show/Hide Headings in Tree* lists each note's sections; `[[Note#Heading]]` links to a section, with completion |
+| Note history | Right-click a note → *Show Note History* opens VS Code's Timeline with every saved version |
+| Leave files out | `notesExplorer.exclude` uses `.gitignore` patterns, and the notes folder's own `.gitignore` is respected |
+| Guided tour | Help → Welcome → *Get started with Notes Explorer* |
 | Organize | Drag & drop; right-click New / Rename / Delete (Recycle Bin) / Copy [[Link]] / Copy Path / Reveal |
 
 ### Graph, board and calendar
@@ -64,6 +78,14 @@ Templates are Markdown files in `.templates/` inside your notes folder. *Manage 
 | `{{text}}` | The captured text (Quick Capture format only) |
 
 `.templates/daily.md` is used for daily notes.
+
+## Encrypted notes
+
+*Encrypt with Password…* replaces a note with an encrypted `.mdenc` file (AES-256-GCM, key from your password via scrypt) and permanently deletes the plain original. Opening it asks for the password once per session; every save is encrypted again. *Lock Encrypted Notes* in the `…` menu forgets the passwords and closes those editors, and *Remove Password…* turns the note back into plain Markdown.
+
+- There is no password recovery: if you forget it, the note can't be opened.
+- Encrypted notes are not searched, and their tasks and links don't appear in the views.
+- While an encrypted note is open its text is in VS Code's memory, and VS Code may keep a backup of unsaved changes until you save. See [SECURITY.md](SECURITY.md).
 
 ## Hiding sensitive values
 
@@ -108,6 +130,12 @@ Masking only changes what's drawn on screen. The file is never modified and the 
 | `notesExplorer.kanban.doneColumn` | `Done` | Board column that ticks cards dropped into it |
 | `notesExplorer.calendar.weekStart` | `monday` | `monday` or `sunday` |
 | `notesExplorer.export.browserPath` | _(auto)_ | Edge/Chrome used for PDF export |
+| `notesExplorer.exclude` | `[]` | `.gitignore`-style patterns to leave out |
+| `notesExplorer.useGitignore` | `true` | Also apply the notes folder's `.gitignore` |
+| `notesExplorer.maxFiles` | `20000` | Stop indexing after this many files |
+| `notesExplorer.showHeadings` | `false` | Show note headings in the tree |
+| `notesExplorer.tasks.recurring` | `true` | Create the next `@every(...)` task when one is completed |
+| `notesExplorer.folders` | `[]` | Notes folders for *Switch Notes Folder* (per machine) |
 
 `pasteImages` works by adding one entry for your notes folder to VS Code's own `markdown.copyFiles.destination` setting; turning it off removes that entry.
 

@@ -4,7 +4,7 @@ const path = require('path');
 const { t } = require('./l10n');
 const { root, isUnderRoot } = require('./util');
 
-const LINK_RE = /\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]/g;
+const LINK_RE = /\[\[([^\]|#]+)(?:#([^\]|]*))?(?:\|[^\]]*)?\]\]/g;
 
 /** Makes [[note name]] clickable inside notes. Missing targets offer to create the note. */
 class WikiLinkProvider {
@@ -16,7 +16,8 @@ class WikiLinkProvider {
       const text = doc.lineAt(i).text;
       for (const m of text.matchAll(LINK_RE)) {
         const range = new vscode.Range(i, m.index, i, m.index + m[0].length);
-        const args = encodeURIComponent(JSON.stringify([m[1].trim()]));
+        // [[Note#Heading]] opens the note at that heading
+        const args = encodeURIComponent(JSON.stringify([m[1].trim(), { heading: m[2] ? m[2].trim() : undefined }]));
         const link = new vscode.DocumentLink(range, vscode.Uri.parse(`command:notesExplorer.openLink?${args}`));
         link.tooltip = this.index.resolveLink(m[1].trim()) ? t('Open note') : t('Create note');
         links.push(link);
@@ -34,6 +35,21 @@ class WikiLinkCompletion {
     const before = doc.lineAt(pos).text.slice(0, pos.character);
     const open = before.lastIndexOf('[[');
     if (open < 0 || before.indexOf(']]', open) >= 0) return [];
+    // After "[[Note#", suggest that note's headings
+    const hash = before.indexOf('#', open);
+    if (hash > open) {
+      const file = this.index.resolveLink(before.slice(open + 2, hash).trim());
+      const n = file && this.index.cache.get(file);
+      if (!n) return [];
+      const range = new vscode.Range(pos.line, hash + 1, pos.line, pos.character);
+      return n.headings.map((h, i) => {
+        const item = new vscode.CompletionItem(h.text, vscode.CompletionItemKind.Reference);
+        item.detail = '#'.repeat(h.level);
+        item.sortText = String(i).padStart(4, '0'); // document order
+        item.range = range;
+        return item;
+      });
+    }
     const range = new vscode.Range(pos.line, open + 2, pos.line, pos.character);
     return [...this.index.cache.keys()].map(f => {
       const name = path.basename(f, path.extname(f));

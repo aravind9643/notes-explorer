@@ -7,11 +7,36 @@ const root = () => (cfg().get('rootPath') || '').trim();
 const hidden = () => new Set([...(cfg().get('hiddenFolders') || []), cfg().get('templatesFolder')].filter(Boolean));
 const rootExists = () => { const r = root(); return !!r && fs.existsSync(r); };
 
+// Exclude patterns (setting + the notes folder's own .gitignore), rebuilt only when either changes
+let excludeCache = { key: null, fn: null };
+const excludeMatcher = () => {
+  const r = root();
+  const patterns = [...(cfg().get('exclude') || [])];
+  let gitignore = '';
+  if (r && cfg().get('useGitignore')) {
+    try { gitignore = fs.readFileSync(require('path').join(r, '.gitignore'), 'utf8'); } catch { /* no .gitignore */ }
+  }
+  const key = `${r}\n${patterns.join('\n')}\n${gitignore}`;
+  if (excludeCache.key !== key) {
+    excludeCache = { key, fn: require('./globMatch').compileExcludes([...patterns, ...gitignore.split(/\r?\n/)]) };
+  }
+  return excludeCache.fn;
+};
+/** Options for NoteIndex.listFiles/scan: exclude patterns and the file limit. */
+const listOpts = () => ({ exclude: excludeMatcher(), maxFiles: cfg().get('maxFiles') || Infinity });
+
+// Encrypted notes open through a virtual file system; ".md" is appended so the editor treats them as Markdown
+const SECURE_SCHEME = 'notes-secure';
+const isSecureFile = (file) => /\.mdenc$/i.test(file || '');
+const secureUri = (file) => vscode.Uri.file(`${file}.md`).with({ scheme: SECURE_SCHEME });
+const fileOfSecureUri = (uri) => uri.fsPath.replace(/\.md$/i, '');
+
 // Tree elements are raw path strings; command args can be a path, a TreeItem, or a Uri
 const itemPath = (item) => {
   if (!item) return undefined;
   if (typeof item === 'string') return item;
-  if (item.resourceUri) return item.resourceUri.fsPath;
+  if (item.scheme === 'notes-secure') return item.fsPath.replace(/\.md$/i, '');
+  if (item.resourceUri) return itemPath(item.resourceUri);
   if (item.fsPath) return item.fsPath;
   if (item.file) return item.file;
   return undefined;
@@ -38,7 +63,8 @@ const isUnderRoot = (file) => {
 
 const openAt = (file, line = 0, col = 0, viewColumn) => {
   const pos = new vscode.Position(line, col);
-  return vscode.window.showTextDocument(vscode.Uri.file(file), { selection: new vscode.Range(pos, pos), preview: false, viewColumn });
+  const uri = isSecureFile(file) ? secureUri(file) : vscode.Uri.file(file);
+  return vscode.window.showTextDocument(uri, { selection: new vscode.Range(pos, pos), preview: false, viewColumn });
 };
 
 const today = () => {
@@ -46,4 +72,7 @@ const today = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-module.exports = { cfg, root, hidden, rootExists, itemPath, safe, debounce, isUnderRoot, openAt, today };
+module.exports = {
+  cfg, root, hidden, rootExists, itemPath, safe, debounce, isUnderRoot, openAt, today,
+  excludeMatcher, listOpts, SECURE_SCHEME, isSecureFile, secureUri, fileOfSecureUri
+};

@@ -1,0 +1,41 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Notes view
+        2. Right-click a note → …
+        3. …
+  - type: input
+    id: version
+    attributes:
+      label: Notes Explorer version
+      description: Extensions view → Notes Explorer → version next to the name
+      placeholder: "1.1.0"
+    validations:
+      required: true
+  - type: input
+    id: vscode
+    attributes:
+      label: VS Code version and OS
+      description: Help → About
+      placeholder: "VS Code 1.143, Windows 11"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error messages or logs
+      description: Any error notification text, or lines starting with [notes-explorer] from Help → Toggle Developer Tools → Console. Please remove anything private from your notes.
+      render: text

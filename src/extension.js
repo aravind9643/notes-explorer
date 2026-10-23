@@ -13,11 +13,14 @@ const { newNote, openDaily, quickCapture } = require('./capture');
 const { LinkTools } = require('./linkTools');
 const { showGraph, showKanban, showCalendar } = require('./webviews');
 const { exportNotes } = require('./exporter');
+const { SecureNotesFs } = require('./secureFs');
+const { encrypt, decrypt, EXT: SECURE_EXT } = require('./secureNote');
+const { rollRecurring } = require('./recurrence');
 const { archiveCompleted } = require('./editOps');
 const { FILTERS } = require('./tasksTree');
 const { checkReminders } = require('./reminders');
 const { t } = require('./l10n');
-const { cfg, root, hidden, rootExists, itemPath, safe, debounce, isUnderRoot, openAt, today } = require('./util');
+const { cfg, root, hidden, rootExists, itemPath, safe, debounce, isUnderRoot, openAt, today, listOpts, SECURE_SCHEME, isSecureFile, secureUri } = require('./util');
 
 const SEARCH_OPTS_KEY = 'notesExplorer.searchOptions';
 const PASTE_KEY = 'notesExplorer.pasteDestinationKey';
@@ -80,6 +83,8 @@ function activate(context) {
   // Reminder bookkeeping follows Settings Sync, so a task isn't announced again on another machine the same day
   context.globalState.setKeysForSync(['notesExplorer.remindersShown', SEARCH_OPTS_KEY]);
 
+  const secureFs = new SecureNotesFs();
+  sub(vscode.workspace.registerFileSystemProvider(SECURE_SCHEME, secureFs, { isCaseSensitive: process.platform === 'linux' }));
   const notesView = vscode.window.createTreeView('notesExplorer.tree', { treeDataProvider: notes, dragAndDropController: notes, canSelectMany: true, showCollapseAll: true });
   const quickView = vscode.window.createTreeView('notesExplorer.quick', { treeDataProvider: quick });
   const tasksView = vscode.window.createTreeView('notesExplorer.tasks', { treeDataProvider: tasks });
@@ -107,10 +112,18 @@ function activate(context) {
   // Single re-index path: async scan (mtime-cached), then refresh every view
   let scanning = Promise.resolve();
   let dirty = false;
+  let warnedTruncated = false;
   const reindex = () => (scanning = scanning.then(async () => {
     dirty = false;
     if (!rootExists()) index.invalidate();
-    else await index.scan(root(), hidden());
+    else {
+      await index.scan(root(), hidden(), listOpts());
+      if (index.truncated && !warnedTruncated) {
+        warnedTruncated = true;
+        vscode.window.showWarningMessage(t('Notes: only the first {0} files are indexed. Raise "notesExplorer.maxFiles" or exclude folders with "notesExplorer.exclude".', cfg().get('maxFiles')), t('Open Settings'))
+          .then(p => p && vscode.commands.executeCommand('workbench.action.openSettings', 'notesExplorer.maxFiles'));
+      }
+    }
     notes.projectDirs = await findProjectDirs(store);
     notes.refresh(); tasks.refresh(); related.refresh(); quick.refresh(); updateStatus();
     tasksView.description = tasks.describe() || undefined;
@@ -139,7 +152,23 @@ function activate(context) {
   watch();
   sub({ dispose: () => watcher && watcher.dispose() });
   // Saving a note always re-indexes (one changed file is cheap), so the status bar count stays current
-  sub(vscode.workspace.onDidSaveTextDocument(d => { if (isUnderRoot(d.uri.fsPath)) { index.invalidate(d.uri.fsPath); reindexNow(); } }));
+  const rolling = new Set();
+  sub(vscode.workspace.onDidSaveTextDocument(async (d) => {
+    if (d.uri.scheme !== 'file' || !isUnderRoot(d.uri.fsPath)) return;
+    index.invalidate(d.uri.fsPath);
+    reindexNow();
+    if (!cfg().get('tasks.recurring') || rolling.has(d.uri.fsPath) || !/@every\(/i.test(d.getText())) return;
+    const res = rollRecurring(d.getText(), today());
+    if (!res.created) return;
+    rolling.add(d.uri.fsPath);
+    try {
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(d.uri, new vscode.Range(0, 0, d.lineCount, 0), res.text);
+      await vscode.workspace.applyEdit(edit);
+      await d.save();
+      vscode.window.setStatusBarMessage(t('Notes: added the next {0} recurring task(s)', res.created), 3000);
+    } finally { rolling.delete(d.uri.fsPath); }
+  }));
   sub(vscode.workspace.onDidRenameFiles(async (e) => {
     // Links are rewritten from the pre-rename index, before it is rebuilt
     await linkTools.onRenamed(e.files).catch(err => vscode.window.showErrorMessage(t('Notes: updating links failed: {0}', err.message)));
@@ -169,7 +198,7 @@ function activate(context) {
   // [[wiki links]] and masked-value hovers in notes
   const noteSelector = [{ scheme: 'file', language: 'markdown' }, { scheme: 'file', language: 'plaintext' }];
   sub(vscode.languages.registerDocumentLinkProvider(noteSelector, new WikiLinkProvider(index)),
-    vscode.languages.registerCompletionItemProvider(noteSelector, new WikiLinkCompletion(index), '['),
+    vscode.languages.registerCompletionItemProvider(noteSelector, new WikiLinkCompletion(index), '[', '#'),
     vscode.languages.registerHoverProvider({ scheme: 'file' }, { provideHover: (doc, pos) => masker.provideHover(doc, pos) }),
     vscode.languages.registerHoverProvider(noteSelector, { provideHover: (doc, pos) => cfg().get('links.hoverPreview') ? linkTools.provideHover(doc, pos) : undefined }),
     vscode.languages.registerCodeActionsProvider(noteSelector, { provideCodeActions: (doc, range, ctx) => linkTools.provideCodeActions(doc, range, ctx) },
@@ -193,7 +222,9 @@ function activate(context) {
   const requireRoot = () => { if (!rootExists()) throw new Error(t('notes folder not found. Use "Notes: Change Notes Location".')); };
   const activeFile = () => {
     const ed = vscode.window.activeTextEditor;
-    return ed && ed.document.uri.scheme === 'file' ? ed.document.uri.fsPath : undefined;
+    if (!ed) return undefined;
+    if (ed.document.uri.scheme === SECURE_SCHEME) return itemPath(ed.document.uri);
+    return ed.document.uri.scheme === 'file' ? ed.document.uri.fsPath : undefined;
   };
 
   reg('notesExplorer.refresh', () => { index.invalidate(); return reindex(); });
@@ -243,7 +274,7 @@ function activate(context) {
   reg('notesExplorer.quickOpen', async () => {
     requireRoot();
     const r = root();
-    const files = await index.listFiles(r, hidden());
+    const files = await index.listFiles(r, hidden(), listOpts());
     const rank = (p) => (store.isPinned(p) ? 0 : store.recent().some(x => x.toLowerCase() === p.toLowerCase()) ? 1 : 2);
     const picks = files.sort((a, b) => rank(a) - rank(b)).map(p => ({
       label: `${store.isPinned(p) ? '$(pinned) ' : ''}${path.basename(p)}`, description: path.relative(r, path.dirname(p)), p
@@ -382,7 +413,7 @@ function activate(context) {
     let file = itemPath(item) || activeFile();
     if (!file || !isUnderRoot(file) || !/\.(md|markdown)$/i.test(file)) {
       requireRoot();
-      const files = (await index.listFiles(root(), hidden())).filter(f => /\.(md|markdown)$/i.test(f));
+      const files = (await index.listFiles(root(), hidden(), listOpts())).filter(f => /\.(md|markdown)$/i.test(f));
       const pick = await vscode.window.showQuickPick(files.map(p => ({ label: path.basename(p), description: path.relative(root(), path.dirname(p)), p })), { placeHolder: t('Show which note as a board?') });
       if (!pick) return;
       file = pick.p;
@@ -405,6 +436,7 @@ function activate(context) {
 
   // --- Links ---
   reg('notesExplorer.openLink', async (target, opts = {}) => {
+    opts = opts || {};
     requireRoot();
     await reindex();
     let file = index.resolveLink(target);
@@ -417,7 +449,8 @@ function activate(context) {
       await fsp.writeFile(file, `# ${target}\n\n`);
       reindexSoon();
     }
-    await openAt(file);
+    const line = opts.heading ? index.headingLine(file, opts.heading) : null;
+    await openAt(file, line || 0);
   });
 
   reg('notesExplorer.linkNoteToFile', async (uri) => {
@@ -426,7 +459,7 @@ function activate(context) {
     if (!file) throw new Error(t('open a file first'));
     if (isUnderRoot(file)) throw new Error(t('this is a note. Use [[note name]] to link notes to each other.'));
     const r = root();
-    const files = (await index.listFiles(r, hidden())).filter(f => /\.(md|markdown|txt)$/i.test(f));
+    const files = (await index.listFiles(r, hidden(), listOpts())).filter(f => /\.(md|markdown|txt)$/i.test(f));
     const items = [{ label: `$(add) ${t('New note…')}`, create: true }, ...files.map(p => ({ label: path.basename(p), description: path.relative(r, path.dirname(p)), p }))];
     const pick = await vscode.window.showQuickPick(items, { placeHolder: t('Link a note to {0}', path.basename(file)), matchOnDescription: true });
     if (!pick) return;
@@ -508,6 +541,114 @@ function activate(context) {
   reg('notesExplorer.copyMasked', async (value) => {
     await vscode.env.clipboard.writeText(value);
     vscode.window.setStatusBarMessage(t('Notes: copied hidden value'), 2500);
+  });
+
+  // --- Encrypted notes ---
+  reg('notesExplorer.encryptNote', async (item) => {
+    const file = itemPath(item) || activeFile();
+    if (!file || !isUnderRoot(file) || isSecureFile(file)) throw new Error(t('choose a note to encrypt'));
+    const ok = await vscode.window.showWarningMessage(
+      t('Encrypt "{0}" with a password?', path.basename(file)), {
+        modal: true,
+        detail: t('The note is replaced by an encrypted copy and the original is deleted permanently (not to the Recycle Bin). It is no longer searchable, and if you forget the password the note cannot be recovered.')
+      }, t('Encrypt'));
+    if (ok !== t('Encrypt')) return;
+    const password = await secureFs.askPassword(file, { confirm: true });
+    const doc = vscode.workspace.textDocuments.find(d => d.uri.fsPath.toLowerCase() === file.toLowerCase());
+    const text = doc ? doc.getText() : await fsp.readFile(file, 'utf8');
+    const dest = file.replace(/\.(md|markdown|txt)$/i, '') + SECURE_EXT;
+    if (fs.existsSync(dest)) throw new Error(t('"{0}" already exists', path.basename(dest)));
+    await fsp.writeFile(dest, encrypt(text, password));
+    decrypt(await fsp.readFile(dest, 'utf8'), password); // verify before removing the original
+    for (const tab of vscode.window.tabGroups.all.flatMap(g => g.tabs))
+      if (tab.input && tab.input.uri && tab.input.uri.fsPath.toLowerCase() === file.toLowerCase()) await vscode.window.tabGroups.close(tab, true);
+    await fsp.rm(file);
+    secureFs.remember(dest, password);
+    await store.renamed(file, dest);
+    index.invalidate(file);
+    await reindex();
+    await vscode.window.showTextDocument(secureUri(dest), { preview: false });
+  });
+  reg('notesExplorer.decryptNote', async (item) => {
+    const file = itemPath(item) || activeFile();
+    if (!file || !isSecureFile(file)) throw new Error(t('choose an encrypted note'));
+    const ok = await vscode.window.showWarningMessage(t('Remove the password from "{0}"?', path.basename(file)), {
+      modal: true, detail: t('The note is saved as plain Markdown again and becomes searchable.')
+    }, t('Remove Password'));
+    if (ok !== t('Remove Password')) return;
+    const text = (await secureFs.readFile(secureUri(file))).toString('utf8'); // asks for the password if needed
+    const dest = file.replace(/\.mdenc$/i, '.md');
+    if (fs.existsSync(dest)) throw new Error(t('"{0}" already exists', path.basename(dest)));
+    for (const tab of vscode.window.tabGroups.all.flatMap(g => g.tabs))
+      if (tab.input && tab.input.uri && tab.input.uri.scheme === SECURE_SCHEME && itemPath(tab.input.uri).toLowerCase() === file.toLowerCase()) await vscode.window.tabGroups.close(tab, true);
+    await fsp.writeFile(dest, text);
+    await fsp.rm(file);
+    await store.renamed(file, dest);
+    await reindex();
+    await openAt(dest);
+  });
+  reg('notesExplorer.lockSecure', async () => {
+    secureFs.lock();
+    for (const tab of vscode.window.tabGroups.all.flatMap(g => g.tabs))
+      if (tab.input && tab.input.uri && tab.input.uri.scheme === SECURE_SCHEME) await vscode.window.tabGroups.close(tab, false);
+    vscode.window.setStatusBarMessage(t('Notes: encrypted notes locked'), 2500);
+  });
+
+  // --- Several notes folders ---
+  const folderName = () => {
+    const match = (cfg().get('folders') || []).find(x => x && x.path && x.path.toLowerCase() === root().toLowerCase());
+    return match && match.name ? match.name : (root() ? path.basename(root()) : '');
+  };
+  const updateTitle = () => {
+    const extra = (cfg().get('folders') || []).length;
+    notesView.title = extra && root() ? folderName() : t('Notes');
+  };
+  updateTitle();
+  sub(vscode.workspace.onDidChangeConfiguration(e => { if (e.affectsConfiguration('notesExplorer')) updateTitle(); }));
+  reg('notesExplorer.switchFolder', async () => {
+    const folders = (cfg().get('folders') || []).filter(x => x && x.path);
+    const items = folders.map(x => ({
+      label: `${x.path.toLowerCase() === root().toLowerCase() ? '$(check) ' : '$(folder) '}${x.name || path.basename(x.path)}`,
+      description: x.path, folder: x
+    }));
+    if (root() && !folders.some(x => x.path.toLowerCase() === root().toLowerCase()))
+      items.unshift({ label: `$(check) ${path.basename(root())}`, description: root(), folder: { name: path.basename(root()), path: root() } });
+    items.push({ label: '', kind: vscode.QuickPickItemKind.Separator }, { label: `$(add) ${t('Add Notes Folder…')}`, add: true });
+    if (folders.length) items.push({ label: `$(remove) ${t('Remove a Notes Folder from this list…')}`, remove: true });
+    const pick = await vscode.window.showQuickPick(items, { placeHolder: t('Switch notes folder') });
+    if (!pick) return;
+    if (pick.add) return vscode.commands.executeCommand('notesExplorer.addFolder');
+    if (pick.remove) {
+      const del = await vscode.window.showQuickPick(folders.map(x => ({ label: x.name || path.basename(x.path), description: x.path, x })), { placeHolder: t('Remove which folder from the list? Its files are not touched.') });
+      if (del) await cfg().update('folders', folders.filter(x => x !== del.x), vscode.ConfigurationTarget.Global);
+      return;
+    }
+    await cfg().update('rootPath', pick.folder.path, vscode.ConfigurationTarget.Global);
+  });
+  reg('notesExplorer.addFolder', async () => {
+    const picked = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, openLabel: t('Add Notes Folder') });
+    if (!picked) return;
+    const p = picked[0].fsPath;
+    const name = await vscode.window.showInputBox({ prompt: t('Name for this notes folder'), value: path.basename(p) });
+    if (name === undefined) return;
+    const folders = (cfg().get('folders') || []).filter(x => x && x.path && x.path.toLowerCase() !== p.toLowerCase());
+    // Keep the current folder in the list too, so you can switch back to it
+    if (root() && !folders.some(x => x.path.toLowerCase() === root().toLowerCase()) && root().toLowerCase() !== p.toLowerCase())
+      folders.unshift({ name: path.basename(root()), path: root() });
+    folders.push({ name: name || path.basename(p), path: p });
+    await cfg().update('folders', folders, vscode.ConfigurationTarget.Global);
+    await cfg().update('rootPath', p, vscode.ConfigurationTarget.Global);
+  });
+
+  // --- Outline and history ---
+  reg('notesExplorer.toggleHeadings', () => cfg().update('showHeadings', !cfg().get('showHeadings'), vscode.ConfigurationTarget.Global));
+  reg('notesExplorer.showHistory', async (item) => {
+    const file = itemPath(item) || activeFile();
+    if (!file) throw new Error(t('open a note first'));
+    if (isSecureFile(file)) throw new Error(t('history is not kept for encrypted notes'));
+    await openAt(file);
+    // VS Code's Timeline view lists the note's Local History (every save made in VS Code) and Git history
+    await vscode.commands.executeCommand('timeline.focus');
   });
 
   // --- File operations ---
