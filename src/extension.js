@@ -9,7 +9,8 @@ const { WikiLinkProvider, WikiLinkCompletion, RelatedTree } = require('./links')
 const { QuickAccessTree } = require('./quickAccess');
 const { Store } = require('./store');
 const { Masker } = require('./masking');
-const { newNote, openDaily, quickCapture } = require('./capture');
+const { newNote, openDaily, quickCapture, listTemplates, templatesDir } = require('./capture');
+const { mergeTemplates } = require('./builtinTemplates');
 const { LinkTools } = require('./linkTools');
 const { showGraph, showKanban, showCalendar } = require('./webviews');
 const { exportNotes } = require('./exporter');
@@ -247,24 +248,37 @@ function activate(context) {
   reg('notesExplorer.quickCapture', async () => { requireRoot(); if (await quickCapture()) reindexSoon(); });
   reg('notesExplorer.openTemplates', async () => {
     requireRoot();
-    const dir = path.join(root(), cfg().get('templatesFolder'));
-    if (!fs.existsSync(dir)) {
-      await fsp.mkdir(dir, { recursive: true });
-      await fsp.writeFile(path.join(dir, 'Meeting.md'),
-        '# {{title}}\n\n**Date:** {{date}}  \n**Attendees:** \n\n## Agenda\n\n- {{cursor}}\n\n## Notes\n\n## Action items\n\n- [ ] \n');
-      await fsp.writeFile(path.join(dir, 'daily.md'), '# {{date:dddd, DD MMMM YYYY}}\n\n## Today\n\n- [ ] {{cursor}}\n\n## Notes\n\n');
-    }
-    const files = (await fsp.readdir(dir)).filter(f => /\.(md|markdown|txt)$/i.test(f));
-    const pick = await vscode.window.showQuickPick(
-      [...files.map(f => ({ label: f, f })), { label: `$(add) ${t('New template…')}`, create: true }],
-      { placeHolder: `${t('Templates in {0}', cfg().get('templatesFolder'))} · {{title}} {{date}} {{time}} {{date:FORMAT}} {{cursor}}` });
+    const dir = templatesDir();
+    const { builtins, extra } = mergeTemplates(await listTemplates());
+    const items = [
+      { label: `$(add) ${t('New template…')}`, create: true },
+      ...(extra.length ? [{ label: t('Your templates'), kind: vscode.QuickPickItemKind.Separator }] : []),
+      ...extra.map(f => ({ label: `$(file-code) ${f.replace(/\.(md|markdown|txt)$/i, '')}`, description: f, f })),
+      { label: t('Built-in (pick one to customise it)'), kind: vscode.QuickPickItemKind.Separator },
+      ...builtins.map(b => ({
+        label: `$(${b.icon}) ${b.name}`,
+        description: b.overriddenBy ? t('customised in {0}', b.overriddenBy) : b.description,
+        f: b.overriddenBy, builtin: b
+      }))
+    ];
+    const pick = await vscode.window.showQuickPick(items, {
+      placeHolder: `${t('Templates in {0}', cfg().get('templatesFolder'))} · {{title}} {{date}} {{time}} {{date:FORMAT}} {{cursor}}`, matchOnDescription: true
+    });
     if (!pick) return;
+    await fsp.mkdir(dir, { recursive: true });
     if (pick.create) {
       let name = await vscode.window.showInputBox({ prompt: t('Template name'), placeHolder: 'Bug report' });
       if (!name) return;
       if (!path.extname(name)) name += '.md';
       const file = path.join(dir, name);
       if (!fs.existsSync(file)) await fsp.writeFile(file, '# {{title}}\n\n{{cursor}}\n');
+      return openAt(file);
+    }
+    // A built-in template is copied into the templates folder, where your edits replace the original
+    if (pick.builtin && !pick.f) {
+      const file = path.join(dir, `${pick.builtin.name}.md`);
+      await fsp.writeFile(file, pick.builtin.body);
+      vscode.window.setStatusBarMessage(t('Notes: "{0}" copied to {1}. Your changes now replace the built-in version.', pick.builtin.name, cfg().get('templatesFolder')), 5000);
       return openAt(file);
     }
     return openAt(path.join(dir, pick.f));

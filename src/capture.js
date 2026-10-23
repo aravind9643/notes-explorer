@@ -5,6 +5,7 @@ const fsp = require('fs/promises');
 const path = require('path');
 const { cfg, root, openAt } = require('./util');
 const { formatDate, renderTemplate } = require('./templates');
+const { mergeTemplates, builtinByName } = require('./builtinTemplates');
 const { t } = require('./l10n');
 
 const templatesDir = () => path.join(root(), cfg().get('templatesFolder'));
@@ -34,15 +35,36 @@ async function createFromTemplate(file, template, title) {
   return file;
 }
 
-/** Asks which template to use; returns template text, or undefined if cancelled. */
+const BLANK = '# {{title}}\n\n{{cursor}}';
+
+/** Asks which template to use (built-in and your own); returns template text, or undefined if cancelled. */
 async function pickTemplate() {
-  const names = await listTemplates();
-  if (!names.length) return '# {{title}}\n\n{{cursor}}';
-  const blank = { label: `$(file) ${t('Blank note')}`, template: '# {{title}}\n\n{{cursor}}' };
-  const items = [blank, ...names.map(n => ({ label: `$(file-code) ${n.replace(/\.(md|markdown|txt)$/i, '')}`, description: n, name: n }))];
-  const pick = await vscode.window.showQuickPick(items, { placeHolder: t('Choose a template') });
+  const { builtins, extra } = mergeTemplates(await listTemplates());
+  const items = [{ label: `$(file) ${t('Blank note')}`, template: BLANK }];
+  if (extra.length) {
+    items.push({ label: t('Your templates'), kind: vscode.QuickPickItemKind.Separator },
+      ...extra.map(n => ({ label: `$(file-code) ${n.replace(/\.(md|markdown|txt)$/i, '')}`, description: n, name: n })));
+  }
+  if (cfg().get('templates.showBuiltIn')) {
+    items.push({ label: t('Built-in'), kind: vscode.QuickPickItemKind.Separator },
+      ...builtins.map(b => ({
+        label: `$(${b.icon}) ${t(b.name)}`,
+        description: b.overriddenBy ? t('customised in {0}', b.overriddenBy) : t(b.description),
+        name: b.overriddenBy, template: b.overriddenBy ? undefined : b.body
+      })));
+  }
+  if (items.length === 1) return BLANK;
+  const pick = await vscode.window.showQuickPick(items, { placeHolder: t('Choose a template'), matchOnDescription: true });
   if (!pick) return undefined;
-  return pick.template || (await readTemplate(pick.name)) || blank.template;
+  return pick.template || (pick.name && (await readTemplate(pick.name))) || BLANK;
+}
+
+/** Template text for a name: your file in the templates folder, else the built-in one. */
+async function templateText(name) {
+  const own = await readTemplate(name);
+  if (own !== null) return own;
+  const b = builtinByName(name);
+  return b ? b.body : null;
 }
 
 async function newNote(dir) {
@@ -64,7 +86,8 @@ async function openDaily(offsetDays = 0, date) {
   if (!date) d.setDate(d.getDate() + offsetDays);
   const name = formatDate(d, cfg().get('daily.fileNameFormat'));
   const file = path.join(root(), cfg().get('daily.folder'), `${name}.md`);
-  const template = (await readTemplate(cfg().get('daily.template'))) || '# {{date:dddd, DD MMMM YYYY}}\n\n{{cursor}}';
+  // "daily.md" in the templates folder if you have one, otherwise the built-in Daily template
+  const template = (await templateText(cfg().get('daily.template'))) || '# {{date:dddd, DD MMMM YYYY}}\n\n{{cursor}}';
   const r = renderTemplate(template, { title: name, now: d, dateFormat: cfg().get('dateFormat') });
   if (!fs.existsSync(file)) {
     await fsp.mkdir(path.dirname(file), { recursive: true });
@@ -93,4 +116,4 @@ async function quickCapture() {
   return file;
 }
 
-module.exports = { newNote, openDaily, quickCapture };
+module.exports = { newNote, openDaily, quickCapture, listTemplates, templatesDir };

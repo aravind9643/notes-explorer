@@ -75,3 +75,19 @@ test('headings and [[Note#Heading]] links are parsed', () => {
   assert.deepStrictEqual(n.headings, [{ level: 1, text: 'Title', line: 0 }, { level: 2, text: 'Agenda', line: 2 }]);
   assert.deepStrictEqual(n.links.map(l => [l.target, l.heading]), [['Other', 'Next steps'], ['Plain', null]]);
 });
+
+test('built-in templates: all render cleanly, names are unique, user files override by name', () => {
+  const { BUILTIN, mergeTemplates, builtinByName } = require('../src/builtinTemplates');
+  const { renderTemplate } = require('../src/templates');
+  assert.strictEqual(new Set(BUILTIN.map(b => b.name.toLowerCase())).size, BUILTIN.length);
+  for (const b of BUILTIN) {
+    const r = renderTemplate(b.body, { title: 'Sample', now: new Date(2026, 9, 23, 9, 30) });
+    assert.doesNotMatch(r.text, /\{\{/, `${b.name} leaves no unfilled placeholders`);
+    assert.ok(r.cursor, `${b.name} places the caret`);
+    assert.ok(b.icon && b.description, `${b.name} has an icon and description`);
+  }
+  assert.strictEqual(builtinByName('daily.md').name, 'Daily', 'daily.template default still matches');
+  const m = mergeTemplates(['Meeting.md', 'My own.md']);
+  assert.strictEqual(m.builtins.find(b => b.name === 'Meeting').overriddenBy, 'Meeting.md');
+  assert.deepStrictEqual(m.extra, ['My own.md']);
+});

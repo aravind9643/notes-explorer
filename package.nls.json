@@ -56,7 +56,7 @@
   "config.templatesFolder": "Folder (inside the notes folder) holding note templates. Placeholders: `{{title}}`, `{{date}}`, `{{time}}`, `{{date:FORMAT}}`, `{{cursor}}`.",
   "config.daily.folder": "Folder (inside the notes folder) for daily notes.",
   "config.daily.fileNameFormat": "File name format for daily notes, using the same tokens as `#notesExplorer.dateFormat#`.",
-  "config.daily.template": "Template file (in the templates folder) used for new daily notes.",
+  "config.daily.template": "Template used for new daily notes: a file in the templates folder (for example `daily.md`), or else the built-in *Daily* template.",
   "config.capture.note": "Note (relative to the notes folder) that Quick Capture appends to.",
   "config.capture.format": "Line format for Quick Capture. For example `- [ ] {{text}}` for tasks, or `- {{time}} {{text}}`.",
   "config.pasteImages.enabled": "Save images pasted or dropped into notes to `#notesExplorer.pasteImages.folder#` next to the note. Uses VS Code's built-in Markdown paste.",
@@ -115,5 +115,6 @@
   "walkthrough.find.title": "Find anything",
   "walkthrough.find.description": "Open by name or search every note.\n[Search in Notes](command:notesExplorer.search)",
   "walkthrough.secure.title": "Keep secrets safe",
-  "walkthrough.secure.description": "Encrypt a note with a password.\n[Learn how](command:notesExplorer.tree.focus)"
+  "walkthrough.secure.description": "Encrypt a note with a password.\n[Learn how](command:notesExplorer.tree.focus)",
+  "config.templates.showBuiltIn": "Offer the built-in templates (Meeting, Daily, Weekly review, Project, 1-on-1, Standup, Bug report, Decision record, Retrospective, How-to, Reading notes, Checklist) in *New Note*. A file with the same name in the templates folder replaces the built-in one."
 }

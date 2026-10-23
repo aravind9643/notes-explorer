@@ -103,6 +103,19 @@ async function run() {
     assert.strictEqual(ed.selection.active.line, 4);
   });
 
+  await tryStep('built-in templates are offered without any template files', async () => {
+    let offered;
+    await answering({ showInputBox: ['Login fails'], showQuickPick: [(items) => { offered = items; return items.find(i => /Bug report/.test(i.label)); }] },
+      () => vscode.commands.executeCommand('notesExplorer.newNote'));
+    const labels = offered.filter(i => i.kind !== vscode.QuickPickItemKind.Separator).map(i => i.label.replace(/^\$\([\w-]+\) /, ''));
+    for (const name of ['Blank note', 'Meeting', 'Daily', 'Weekly review', 'Project', '1-on-1', 'Standup', 'Bug report', 'Decision record', 'Retrospective', 'How-to', 'Reading notes', 'Checklist'])
+      assert.ok(labels.includes(name), `${name} offered`);
+    const text = await until(() => fs.existsSync(path.join(ROOT, 'Login fails.md')) && read('Login fails.md'), 'bug note');
+    assert.match(text, /^# Bug: Login fails\n/);
+    assert.match(text, /## Steps to reproduce/);
+    assert.doesNotMatch(text, /\{\{/);
+  });
+
   await tryStep('marking a task done stamps the date', async () => {
     await vscode.commands.executeCommand('notesExplorer.toggleTask', { file: path.join(ROOT, 'Work/Project.md'), line: 4 });
     await until(() => read('Work/Project.md').includes(`- [x] Write spec #work @due(2020-01-01) ✓ ${today()}`), 'stamped task');
