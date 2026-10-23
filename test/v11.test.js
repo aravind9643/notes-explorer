@@ -103,3 +103,34 @@ test('template example lines are not counted as tasks or reminders', () => {
   assert.strictEqual(parseNote('- [ ] _e.g. sample_\n- [ ] real one').tasks.length, 1);
   assert.match(BUILTIN.find(b => b.name === 'Meeting').body, /_e\.g\. /, 'templates carry examples');
 });
+
+test('starter notes: created in an empty folder, never overwrite, all links resolve', async () => {
+  const fsx = require('fs'), os = require('os');
+  const { createStarter, isEmptyFolder, STARTER } = require('../src/starter');
+  const { NoteIndex } = require('../src/noteIndex');
+  const dir = fsx.mkdtempSync(path.join(os.tmpdir(), 'notes-starter-'));
+  fsx.mkdirSync(path.join(dir, '.git'));
+  assert.ok(await isEmptyFolder(dir), 'hidden folders do not count');
+  const created = await createStarter(dir, new Date(2026, 9, 23));
+  assert.deepStrictEqual(created.sort(), Object.keys(STARTER).sort());
+  assert.ok(!(await isEmptyFolder(dir)));
+  assert.match(fsx.readFileSync(path.join(dir, 'Projects', 'Example project.md'), 'utf8'), /@due\(2026-10-26\)/);
+
+  fsx.writeFileSync(path.join(dir, 'Inbox.md'), 'mine');
+  fsx.rmSync(path.join(dir, 'Welcome.md'));
+  assert.deepStrictEqual(await createStarter(dir), ['Welcome.md'], 'only missing files are added');
+  assert.strictEqual(fsx.readFileSync(path.join(dir, 'Inbox.md'), 'utf8'), 'mine', 'existing file kept');
+
+  const idx = new NoteIndex();
+  await idx.scan(dir, new Set(['.git']));
+  const broken = [...idx.cache.keys()].flatMap(f => idx.unresolvedLinks(f).map(l => `${path.basename(f)} → ${l.target}`));
+  assert.deepStrictEqual(broken, [], 'every [[link]] in the starter notes points at a starter note');
+  assert.ok(idx.openTasks().length >= 5, 'starter notes include tasks for the Tasks view');
+  fsx.rmSync(dir, { recursive: true, force: true });
+});
+
+test('links and tags inside `inline code` are ignored, columns unchanged', () => {
+  const n = parseNote('Write `[[Note name]]` or `#tag`, see [[Real]] #real and ``code with ` tick [[X]]``');
+  assert.deepStrictEqual(n.links.map(l => [l.target, l.col]), [['Real', 37]]);
+  assert.deepStrictEqual(n.tags, ['real']);
+});

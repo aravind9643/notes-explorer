@@ -13,6 +13,7 @@ Works in VS Code and in editors that install from Open VSX, such as VSCodium, Cu
 
 1. Install **Notes Explorer** from the Extensions view (`Ctrl+Shift+X`).
 2. Click the **Notes** icon in the Activity Bar, then **Set Notes Location** and pick any folder (an existing one works).
+   If the folder is empty, you're offered a starter structure: `Welcome`, `Inbox`, `Daily/`, `Projects/`, `Meetings/`, `Reference/` and `Archive/`, with example notes that show tasks, links and boards. (Later: `…` → *Create Starter Notes*; existing files are never overwritten.)
 3. Press `Ctrl+Alt+D` for today's note, or `Ctrl+Alt+N` to open any note by name. On macOS use `Cmd+Alt`.
 
 Everything is stored as ordinary `.md` files, so you can keep the folder in OneDrive, Dropbox or a Git repository and edit it with any other tool too.

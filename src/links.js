@@ -13,7 +13,8 @@ class WikiLinkProvider {
     if (!isUnderRoot(doc.uri.fsPath)) return [];
     const links = [];
     for (let i = 0; i < doc.lineCount; i++) {
-      const text = doc.lineAt(i).text;
+      // Same rule as the index: [[examples]] inside `inline code` are not links
+      const text = doc.lineAt(i).text.replace(/(`+)[^`]*?\1/g, (m) => ' '.repeat(m.length));
       for (const m of text.matchAll(LINK_RE)) {
         const range = new vscode.Range(i, m.index, i, m.index + m[0].length);
         // [[Note#Heading]] opens the note at that heading

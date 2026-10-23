@@ -11,12 +11,16 @@
 - **Exclude patterns** (`.gitignore` syntax, plus the notes folder's own `.gitignore`) and a file limit for very large folders.
 - **Getting-started walkthrough** (Help → Welcome).
 - **12 built-in templates**: Meeting, Daily, Weekly review, Project, 1-on-1, Standup, Bug report, Decision record, Retrospective, How-to, Reading notes and Checklist. Each comes with example lines showing what goes where; copy one to your templates folder to customise it.
+- **Starter notes** for an empty folder: Welcome, Inbox, Daily, Projects, Meetings, Reference and Archive, with example notes (also *Create Starter Notes*).
 - Also published to **Open VSX** for VSCodium, Cursor, Windsurf and other editors.
 
 ### Changed
 - The extension is bundled into a single file, so it loads faster and the package is smaller.
 - Exported HTML and PDF no longer run scripts from notes: scripts and event handlers are removed and a Content Security Policy blocks the rest.
 - Views have their own icons when moved to another sidebar or panel.
+
+### Fixed
+- `[[links]]` and `#tags` written inside `inline code` are no longer treated as real links or tags.
 
 ## 1.0.0
 

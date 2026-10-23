@@ -294,6 +294,24 @@ async function run() {
     assert.match(read('Vault.md'), /added line/);
   });
 
+  await tryStep('choosing an empty folder offers starter notes', async () => {
+    const fresh = fs.mkdtempSync(path.join(ROOT, '..', 'notes-it-fresh-'));
+    await answering({ showOpenDialog: [[vscode.Uri.file(fresh)]], showInformationMessage: ['Add Starter Notes'] },
+      () => vscode.commands.executeCommand('notesExplorer.changeLocation'));
+    await until(() => fs.existsSync(path.join(fresh, 'Welcome.md')) && fs.existsSync(path.join(fresh, 'Projects', 'Example project.md')), 'starter files');
+    for (const d of ['Daily', 'Meetings', 'Reference', 'Archive']) assert.ok(fs.existsSync(path.join(fresh, d)), `${d}/ created`);
+    await until(() => vscode.window.activeTextEditor && /Welcome\.md$/.test(vscode.window.activeTextEditor.document.uri.fsPath), 'Welcome opened');
+    // a folder with notes is not offered anything
+    let offered = false;
+    await answering({ showOpenDialog: [[vscode.Uri.file(ROOT)]], showInformationMessage: [(msg) => { if (/empty/.test(msg)) offered = true; }] },
+      () => vscode.commands.executeCommand('notesExplorer.changeLocation'));
+    assert.strictEqual(offered, false);
+    // A picked folder's path can differ in drive-letter case (c:\ vs C:\), which Windows treats as the same
+    await until(() => vscode.workspace.getConfiguration('notesExplorer').get('rootPath').toLowerCase() === ROOT.toLowerCase(), 'back to the main folder');
+    await vscode.workspace.getConfiguration('notesExplorer').update('rootPath', ROOT, vscode.ConfigurationTarget.Global);
+    fs.rmSync(fresh, { recursive: true, force: true });
+  });
+
   await tryStep('switching notes folders', async () => {
     const other = fs.mkdtempSync(path.join(ROOT, '..', 'notes-it-other-'));
     fs.writeFileSync(path.join(other, 'Elsewhere.md'), '# Elsewhere\n');

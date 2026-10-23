@@ -32,8 +32,10 @@ function parseNote(text) {
         due: due ? due[1] : null, doneOn: doneOn ? doneOn[1] : null, tags: taskTags
       });
     }
-    for (const m of line.matchAll(TAG_RE)) tags.add(m[1].toLowerCase());
-    for (const m of line.matchAll(LINK_RE)) links.push({ target: m[1].trim(), heading: m[2] ? m[2].trim() : null, line: i, col: m.index, length: m[0].length });
+    // `inline code` is blanked out (same length, so columns stay right): examples there are not links or tags
+    const prose = line.replace(/(`+)[^`]*?\1/g, (m) => ' '.repeat(m.length));
+    for (const m of prose.matchAll(TAG_RE)) tags.add(m[1].toLowerCase());
+    for (const m of prose.matchAll(LINK_RE)) links.push({ target: m[1].trim(), heading: m[2] ? m[2].trim() : null, line: i, col: m.index, length: m[0].length });
   });
   return { lines, tasks, tags: [...tags], links, headings };
 }

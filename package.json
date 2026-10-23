@@ -235,6 +235,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "%config.templates.showBuiltIn%"
+        },
+        "notesExplorer.starter.offer": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.starter.offer%"
         }
       }
     },
@@ -588,6 +593,12 @@
         "title": "%command.showHistory%",
         "category": "%category%",
         "icon": "$(history)"
+      },
+      {
+        "command": "notesExplorer.createStarter",
+        "title": "%command.createStarter%",
+        "category": "%category%",
+        "icon": "$(sparkle)"
       }
     ],
     "keybindings": [
@@ -788,6 +799,11 @@
           "command": "notesExplorer.lockSecure",
           "when": "view == notesExplorer.tree",
           "group": "3_view@6"
+        },
+        {
+          "command": "notesExplorer.createStarter",
+          "when": "view == notesExplorer.tree",
+          "group": "4_settings@3"
         }
       ],
       "view/item/context": [
