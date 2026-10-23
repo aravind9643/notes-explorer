@@ -1,0 +1,921 @@
+{
+  "name": "notes-explorer",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "1.0.0",
+  "publisher": "AravindMerugu",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "%config.title%",
+      "properties": {
+        "notesExplorer.rootPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.rootPath%",
+          "scope": "machine"
+        },
+        "notesExplorer.hiddenFolders": {
+          "type": "array",
+          "default": [
+            ".git",
+            "node_modules"
+          ],
+          "markdownDescription": "%config.hiddenFolders%",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notesExplorer.sortBy": {
+          "type": "string",
+          "default": "name",
+          "markdownDescription": "%config.sortBy%",
+          "enum": [
+            "name",
+            "modified",
+            "created"
+          ],
+          "enumDescriptions": [
+            "%config.sortBy.name%",
+            "%config.sortBy.modified%",
+            "%config.sortBy.created%"
+          ]
+        },
+        "notesExplorer.showModifiedTime": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.showModifiedTime%"
+        },
+        "notesExplorer.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.showStatusBar%"
+        },
+        "notesExplorer.reminders": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.reminders%"
+        },
+        "notesExplorer.dateFormat": {
+          "type": "string",
+          "default": "YYYY-MM-DD",
+          "markdownDescription": "%config.dateFormat%"
+        },
+        "notesExplorer.templatesFolder": {
+          "type": "string",
+          "default": ".templates",
+          "markdownDescription": "%config.templatesFolder%"
+        },
+        "notesExplorer.daily.folder": {
+          "type": "string",
+          "default": "Daily",
+          "markdownDescription": "%config.daily.folder%"
+        },
+        "notesExplorer.daily.fileNameFormat": {
+          "type": "string",
+          "default": "YYYY-MM-DD",
+          "markdownDescription": "%config.daily.fileNameFormat%"
+        },
+        "notesExplorer.daily.template": {
+          "type": "string",
+          "default": "daily.md",
+          "markdownDescription": "%config.daily.template%"
+        },
+        "notesExplorer.capture.note": {
+          "type": "string",
+          "default": "Inbox.md",
+          "markdownDescription": "%config.capture.note%"
+        },
+        "notesExplorer.capture.format": {
+          "type": "string",
+          "default": "- {{text}}",
+          "markdownDescription": "%config.capture.format%"
+        },
+        "notesExplorer.pasteImages.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.pasteImages.enabled%"
+        },
+        "notesExplorer.pasteImages.folder": {
+          "type": "string",
+          "default": "assets",
+          "markdownDescription": "%config.pasteImages.folder%"
+        },
+        "notesExplorer.mask.patterns": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "%config.mask.patterns%",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notesExplorer.projectsFolder": {
+          "type": "string",
+          "default": "Projects",
+          "markdownDescription": "%config.projectsFolder%"
+        },
+        "notesExplorer.links.reportMissing": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.links.reportMissing%"
+        },
+        "notesExplorer.links.hoverPreview": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.links.hoverPreview%"
+        },
+        "notesExplorer.links.previewLines": {
+          "type": "number",
+          "default": 12,
+          "markdownDescription": "%config.links.previewLines%",
+          "minimum": 1,
+          "maximum": 60
+        },
+        "notesExplorer.links.updateOnRename": {
+          "type": "string",
+          "default": "prompt",
+          "markdownDescription": "%config.links.updateOnRename%",
+          "enum": [
+            "prompt",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "%config.links.updateOnRename.prompt%",
+            "%config.links.updateOnRename.always%",
+            "%config.links.updateOnRename.never%"
+          ]
+        },
+        "notesExplorer.tasks.stampCompletion": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.tasks.stampCompletion%"
+        },
+        "notesExplorer.tasks.archiveHeading": {
+          "type": "string",
+          "default": "Completed",
+          "markdownDescription": "%config.tasks.archiveHeading%"
+        },
+        "notesExplorer.kanban.doneColumn": {
+          "type": "string",
+          "default": "Done",
+          "markdownDescription": "%config.kanban.doneColumn%"
+        },
+        "notesExplorer.calendar.weekStart": {
+          "type": "string",
+          "default": "monday",
+          "markdownDescription": "%config.calendar.weekStart%",
+          "enum": [
+            "monday",
+            "sunday"
+          ]
+        },
+        "notesExplorer.export.browserPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.export.browserPath%",
+          "scope": "machine"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "notesExplorer",
+          "title": "%container.title%",
+          "icon": "media/notes.svg"
+        }
+      ]
+    },
+    "views": {
+      "notesExplorer": [
+        {
+          "id": "notesExplorer.quick",
+          "name": "%view.quick%",
+          "when": "notesExplorer.hasQuickAccess"
+        },
+        {
+          "id": "notesExplorer.tree",
+          "name": "%view.tree%"
+        },
+        {
+          "id": "notesExplorer.tasks",
+          "name": "%view.tasks%"
+        },
+        {
+          "id": "notesExplorer.related",
+          "name": "%view.related%",
+          "visibility": "collapsed"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "notesExplorer.tree",
+        "contents": "%welcome.tree%",
+        "when": "notesExplorer.missingRoot"
+      },
+      {
+        "view": "notesExplorer.tasks",
+        "contents": "%welcome.tasks%"
+      },
+      {
+        "view": "notesExplorer.related",
+        "contents": "%welcome.relatedCode%",
+        "when": "notesExplorer.activeIsCode"
+      },
+      {
+        "view": "notesExplorer.related",
+        "contents": "%welcome.relatedNote%",
+        "when": "!notesExplorer.activeIsCode"
+      }
+    ],
+    "commands": [
+      {
+        "command": "notesExplorer.refresh",
+        "title": "%command.refresh%",
+        "category": "%category%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "notesExplorer.newNote",
+        "title": "%command.newNote%",
+        "category": "%category%",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "notesExplorer.newFolder",
+        "title": "%command.newFolder%",
+        "category": "%category%",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "notesExplorer.quickOpen",
+        "title": "%command.quickOpen%",
+        "category": "%category%",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "notesExplorer.search",
+        "title": "%command.search%",
+        "category": "%category%",
+        "icon": "$(search)"
+      },
+      {
+        "command": "notesExplorer.preview",
+        "title": "%command.preview%",
+        "category": "%category%",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "notesExplorer.reveal",
+        "title": "%command.reveal%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.changeLocation",
+        "title": "%command.changeLocation%",
+        "category": "%category%",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "notesExplorer.rename",
+        "title": "%command.rename%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.delete",
+        "title": "%command.delete%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.filterByTag",
+        "title": "%command.filterByTag%",
+        "category": "%category%",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "notesExplorer.clearFilter",
+        "title": "%command.clearFilter%",
+        "category": "%category%",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "notesExplorer.openTask",
+        "title": "%command.openTask%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.toggleTask",
+        "title": "%command.toggleTask%",
+        "category": "%category%",
+        "icon": "$(check)"
+      },
+      {
+        "command": "notesExplorer.openLink",
+        "title": "%command.openLink%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.openProjectNotes",
+        "title": "%command.openProjectNotes%",
+        "category": "%category%",
+        "icon": "$(folder-active)"
+      },
+      {
+        "command": "notesExplorer.openDaily",
+        "title": "%command.openDaily%",
+        "category": "%category%",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "notesExplorer.openYesterday",
+        "title": "%command.openYesterday%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.quickCapture",
+        "title": "%command.quickCapture%",
+        "category": "%category%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "notesExplorer.openTemplates",
+        "title": "%command.openTemplates%",
+        "category": "%category%",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "notesExplorer.sortBy",
+        "title": "%command.sortBy%",
+        "category": "%category%",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "notesExplorer.toggleModifiedTime",
+        "title": "%command.toggleModifiedTime%",
+        "category": "%category%",
+        "icon": "$(clock)"
+      },
+      {
+        "command": "notesExplorer.pin",
+        "title": "%command.pin%",
+        "category": "%category%",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "notesExplorer.unpin",
+        "title": "%command.unpin%",
+        "category": "%category%",
+        "icon": "$(pinned)"
+      },
+      {
+        "command": "notesExplorer.clearRecent",
+        "title": "%command.clearRecent%",
+        "category": "%category%",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "notesExplorer.linkNoteToFile",
+        "title": "%command.linkNoteToFile%",
+        "category": "%category%",
+        "icon": "$(link)"
+      },
+      {
+        "command": "notesExplorer.unlinkNote",
+        "title": "%command.unlinkNote%",
+        "category": "%category%",
+        "icon": "$(close)"
+      },
+      {
+        "command": "notesExplorer.linkFolderToProject",
+        "title": "%command.linkFolderToProject%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.unlinkProject",
+        "title": "%command.unlinkProject%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.toggleMask",
+        "title": "%command.toggleMask%",
+        "category": "%category%",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "notesExplorer.copyMasked",
+        "title": "%command.copyMasked%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.copyPath",
+        "title": "%command.copyPath%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.copyLink",
+        "title": "%command.copyLink%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.openDailyFor",
+        "title": "%command.openDailyFor%",
+        "category": "%category%"
+      },
+      {
+        "command": "notesExplorer.filterTasks",
+        "title": "%command.filterTasks%",
+        "category": "%category%",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "notesExplorer.clearTaskFilter",
+        "title": "%command.clearTaskFilter%",
+        "category": "%category%",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "notesExplorer.sortTasks",
+        "title": "%command.sortTasks%",
+        "category": "%category%",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "notesExplorer.archiveCompleted",
+        "title": "%command.archiveCompleted%",
+        "category": "%category%",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "notesExplorer.renameTag",
+        "title": "%command.renameTag%",
+        "category": "%category%",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "notesExplorer.showGraph",
+        "title": "%command.showGraph%",
+        "category": "%category%",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "notesExplorer.showKanban",
+        "title": "%command.showKanban%",
+        "category": "%category%",
+        "icon": "$(project)"
+      },
+      {
+        "command": "notesExplorer.showCalendar",
+        "title": "%command.showCalendar%",
+        "category": "%category%",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "notesExplorer.exportHtml",
+        "title": "%command.exportHtml%",
+        "category": "%category%",
+        "icon": "$(export)"
+      },
+      {
+        "command": "notesExplorer.exportPdf",
+        "title": "%command.exportPdf%",
+        "category": "%category%",
+        "icon": "$(file-pdf)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "notesExplorer.quickOpen",
+        "key": "ctrl+alt+n",
+        "mac": "cmd+alt+n"
+      },
+      {
+        "command": "notesExplorer.search",
+        "key": "ctrl+alt+f",
+        "mac": "cmd+alt+f"
+      },
+      {
+        "command": "notesExplorer.openProjectNotes",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
+      },
+      {
+        "command": "notesExplorer.openDaily",
+        "key": "ctrl+alt+d",
+        "mac": "cmd+alt+d"
+      },
+      {
+        "command": "notesExplorer.quickCapture",
+        "key": "ctrl+alt+c",
+        "mac": "cmd+alt+c"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "notesExplorer.search",
+          "when": "view == notesExplorer.tree",
+          "group": "navigation@1"
+        },
+        {
+          "command": "notesExplorer.quickOpen",
+          "when": "view == notesExplorer.tree",
+          "group": "navigation@2"
+        },
+        {
+          "command": "notesExplorer.newNote",
+          "when": "view == notesExplorer.tree",
+          "group": "navigation@3"
+        },
+        {
+          "command": "notesExplorer.openDaily",
+          "when": "view == notesExplorer.tree",
+          "group": "navigation@4"
+        },
+        {
+          "command": "notesExplorer.filterByTag",
+          "when": "view == notesExplorer.tree && !notesExplorer.filtered",
+          "group": "navigation@5"
+        },
+        {
+          "command": "notesExplorer.clearFilter",
+          "when": "view == notesExplorer.tree && notesExplorer.filtered",
+          "group": "navigation@5"
+        },
+        {
+          "command": "notesExplorer.newFolder",
+          "when": "view == notesExplorer.tree",
+          "group": "1_create@1"
+        },
+        {
+          "command": "notesExplorer.quickCapture",
+          "when": "view == notesExplorer.tree",
+          "group": "1_create@2"
+        },
+        {
+          "command": "notesExplorer.openYesterday",
+          "when": "view == notesExplorer.tree",
+          "group": "1_create@3"
+        },
+        {
+          "command": "notesExplorer.openTemplates",
+          "when": "view == notesExplorer.tree",
+          "group": "1_create@4"
+        },
+        {
+          "command": "notesExplorer.openProjectNotes",
+          "when": "view == notesExplorer.tree",
+          "group": "2_project@1"
+        },
+        {
+          "command": "notesExplorer.unlinkProject",
+          "when": "view == notesExplorer.tree",
+          "group": "2_project@2"
+        },
+        {
+          "command": "notesExplorer.sortBy",
+          "when": "view == notesExplorer.tree",
+          "group": "3_view@1"
+        },
+        {
+          "command": "notesExplorer.toggleModifiedTime",
+          "when": "view == notesExplorer.tree",
+          "group": "3_view@2"
+        },
+        {
+          "command": "notesExplorer.toggleMask",
+          "when": "view == notesExplorer.tree",
+          "group": "3_view@3"
+        },
+        {
+          "command": "notesExplorer.refresh",
+          "when": "view == notesExplorer.tree",
+          "group": "3_view@4"
+        },
+        {
+          "command": "notesExplorer.changeLocation",
+          "when": "view == notesExplorer.tree",
+          "group": "4_settings@1"
+        },
+        {
+          "command": "notesExplorer.clearRecent",
+          "when": "view == notesExplorer.quick",
+          "group": "navigation"
+        },
+        {
+          "command": "notesExplorer.refresh",
+          "when": "view == notesExplorer.tasks",
+          "group": "9_misc"
+        },
+        {
+          "command": "notesExplorer.linkNoteToFile",
+          "when": "view == notesExplorer.related && notesExplorer.activeIsCode",
+          "group": "navigation"
+        },
+        {
+          "command": "notesExplorer.showGraph",
+          "when": "view == notesExplorer.tree",
+          "group": "2_views@1"
+        },
+        {
+          "command": "notesExplorer.showCalendar",
+          "when": "view == notesExplorer.tree",
+          "group": "2_views@2"
+        },
+        {
+          "command": "notesExplorer.showKanban",
+          "when": "view == notesExplorer.tree",
+          "group": "2_views@3"
+        },
+        {
+          "command": "notesExplorer.renameTag",
+          "when": "view == notesExplorer.tree",
+          "group": "3_view@5"
+        },
+        {
+          "command": "notesExplorer.exportHtml",
+          "when": "view == notesExplorer.tree",
+          "group": "5_export@1"
+        },
+        {
+          "command": "notesExplorer.exportPdf",
+          "when": "view == notesExplorer.tree",
+          "group": "5_export@2"
+        },
+        {
+          "command": "notesExplorer.filterTasks",
+          "when": "view == notesExplorer.tasks && !notesExplorer.tasksFiltered",
+          "group": "navigation@1"
+        },
+        {
+          "command": "notesExplorer.clearTaskFilter",
+          "when": "view == notesExplorer.tasks && notesExplorer.tasksFiltered",
+          "group": "navigation@1"
+        },
+        {
+          "command": "notesExplorer.sortTasks",
+          "when": "view == notesExplorer.tasks",
+          "group": "navigation@2"
+        },
+        {
+          "command": "notesExplorer.filterTasks",
+          "when": "view == notesExplorer.tasks && notesExplorer.tasksFiltered",
+          "group": "1_filter"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "notesExplorer.preview",
+          "when": "view == notesExplorer.tree && viewItem == note",
+          "group": "inline"
+        },
+        {
+          "command": "notesExplorer.newNote",
+          "when": "view == notesExplorer.tree && viewItem == folder",
+          "group": "1_new@1"
+        },
+        {
+          "command": "notesExplorer.newFolder",
+          "when": "view == notesExplorer.tree && viewItem == folder",
+          "group": "1_new@2"
+        },
+        {
+          "command": "notesExplorer.search",
+          "when": "view == notesExplorer.tree && viewItem == folder",
+          "group": "1_new@3"
+        },
+        {
+          "command": "notesExplorer.pin",
+          "when": "view == notesExplorer.tree && viewItem == note",
+          "group": "2_pin"
+        },
+        {
+          "command": "notesExplorer.rename",
+          "when": "view == notesExplorer.tree",
+          "group": "3_edit@1"
+        },
+        {
+          "command": "notesExplorer.delete",
+          "when": "view == notesExplorer.tree",
+          "group": "3_edit@2"
+        },
+        {
+          "command": "notesExplorer.copyLink",
+          "when": "view == notesExplorer.tree && viewItem == note",
+          "group": "4_copy@1"
+        },
+        {
+          "command": "notesExplorer.copyPath",
+          "when": "view == notesExplorer.tree",
+          "group": "4_copy@2"
+        },
+        {
+          "command": "notesExplorer.linkFolderToProject",
+          "when": "view == notesExplorer.tree && viewItem == folder && workspaceFolderCount > 0",
+          "group": "5_project"
+        },
+        {
+          "command": "notesExplorer.reveal",
+          "when": "view == notesExplorer.tree",
+          "group": "9_misc"
+        },
+        {
+          "command": "notesExplorer.pin",
+          "when": "view == notesExplorer.quick && viewItem == qaNote",
+          "group": "inline"
+        },
+        {
+          "command": "notesExplorer.unpin",
+          "when": "view == notesExplorer.quick && viewItem == qaNotePinned",
+          "group": "inline"
+        },
+        {
+          "command": "notesExplorer.clearRecent",
+          "when": "view == notesExplorer.quick && viewItem == qaRecentGroup",
+          "group": "inline"
+        },
+        {
+          "command": "notesExplorer.unlinkNote",
+          "when": "view == notesExplorer.related && viewItem == linkedNote",
+          "group": "inline"
+        },
+        {
+          "command": "notesExplorer.toggleTask",
+          "when": "view == notesExplorer.tasks && viewItem == task",
+          "group": "inline"
+        },
+        {
+          "command": "notesExplorer.showKanban",
+          "when": "view == notesExplorer.tree && viewItem == note",
+          "group": "6_views@1"
+        },
+        {
+          "command": "notesExplorer.archiveCompleted",
+          "when": "view == notesExplorer.tree && viewItem == note",
+          "group": "6_views@2"
+        },
+        {
+          "command": "notesExplorer.exportHtml",
+          "when": "view == notesExplorer.tree",
+          "group": "7_export@1"
+        },
+        {
+          "command": "notesExplorer.exportPdf",
+          "when": "view == notesExplorer.tree",
+          "group": "7_export@2"
+        },
+        {
+          "command": "notesExplorer.showKanban",
+          "when": "view == notesExplorer.tasks && viewItem == taskFile",
+          "group": "inline"
+        },
+        {
+          "command": "notesExplorer.archiveCompleted",
+          "when": "view == notesExplorer.tasks && viewItem == taskFile",
+          "group": "1_file"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "notesExplorer.linkNoteToFile",
+          "when": "!explorerResourceIsFolder",
+          "group": "7_modification"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "notesExplorer.linkNoteToFile",
+          "when": "resourceScheme == file",
+          "group": "3_notes"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "notesExplorer.openTask",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.toggleTask",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.openLink",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.preview",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.reveal",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.rename",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.delete",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.clearFilter",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.copyMasked",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.copyPath",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.copyLink",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.unlinkNote",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.linkFolderToProject",
+          "when": "false"
+        },
+        {
+          "command": "notesExplorer.openDailyFor",
+          "when": "false"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "notesExplorer.showKanban",
+          "when": "resourceLangId == markdown && notesExplorer.activeIsNote",
+          "group": "navigation@90"
+        }
+      ]
+    }
+  },
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aravind9643/notes-explorer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aravind9643/notes-explorer/issues"
+  },
+  "homepage": "https://github.com/aravind9643/notes-explorer#readme",
+  "categories": [
+    "Notebooks",
+    "Other"
+  ],
+  "keywords": [
+    "notes",
+    "markdown",
+    "tasks",
+    "todo",
+    "daily notes",
+    "wiki links",
+    "backlinks",
+    "templates",
+    "zettelkasten"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "package": "npx --yes @vscode/vsce package",
+    "publish": "npx --yes @vscode/vsce publish",
+    "l10n": "node scripts/l10n-export.js",
+    "test:integration": "node test/integration/run.js",
+    "screenshots": "node scripts/render-webviews.js"
+  },
+  "l10n": "./l10n",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "%virtualWorkspaces%"
+    }
+  },
+  "galleryBanner": {
+    "color": "#2563EB",
+    "theme": "dark"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "^2.5.2"
+  },
+  "pricing": "Free"
+}
